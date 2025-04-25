@@ -1,0 +1,214 @@
+<script type="text/javascript">
+    RED.nodes.registerType('wger-workout', {
+        category: 'Wger',
+        color: '#0090d1',
+        defaults: {
+            name: { value: "" },
+            server: { type: "wger-config", required: true },
+            operation: { value: "listWorkouts", required: true }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "wger.svg",
+        label: function () {
+            return this.name || "Wger Workout";
+        },
+        paletteLabel: "Workout",
+        oneditprepare: function () {
+            const node = this;
+
+            // Workout operations
+            const operations = [
+                { value: "listWorkouts", label: "List Workouts" },
+                { value: "getWorkout", label: "Get Workout Details" },
+                { value: "createWorkout", label: "Create Workout" },
+                { value: "updateWorkout", label: "Update Workout" },
+                { value: "deleteWorkout", label: "Delete Workout" },
+                { value: "getWorkoutCanonical", label: "Get Workout Canonical Representation" },
+                { value: "getWorkoutLogData", label: "Get Workout Log Data" },
+                { value: "listDays", label: "List Days" },
+                { value: "getDay", label: "Get Day Details" },
+                { value: "createDay", label: "Create Day" },
+                { value: "updateDay", label: "Update Day" },
+                { value: "deleteDay", label: "Delete Day" },
+                { value: "listSets", label: "List Sets" },
+                { value: "createSet", label: "Create Set" },
+                { value: "updateSet", label: "Update Set" },
+                { value: "deleteSet", label: "Delete Set" },
+                { value: "listWorkoutSessions", label: "List Workout Sessions" },
+                { value: "getWorkoutSession", label: "Get Workout Session" },
+                { value: "createWorkoutSession", label: "Create Workout Session" },
+                { value: "updateWorkoutSession", label: "Update Workout Session" },
+                { value: "deleteWorkoutSession", label: "Delete Workout Session" },
+                { value: "getLatestWorkoutSession", label: "Get Latest Workout Session" }
+            ];
+
+            // Populate operation dropdown
+            const $operationField = $('#node-input-operation');
+            operations.forEach(op => {
+                $operationField.append($('<option>').val(op.value).text(op.label));
+            });
+
+            // Set current value
+            $operationField.val(node.operation);
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="wger-workout">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-server"><i class="fa fa-server"></i> Server</label>
+        <input type="text" id="node-input-server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-operation"><i class="fa fa-wrench"></i> Operation</label>
+        <select id="node-input-operation"></select>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="wger-workout">
+    <p>A node to interact with Wger workout management features.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The parameters required for the workout operation</dd>
+        <dt>operation <span class="property-type">string</span></dt>
+        <dd>(Optional) Override the operation specified in the node configuration</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The result of the Wger workout operation</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node provides comprehensive access to Wger's workout management functions, including workout plans, days, and exercise sets.</p>
+
+    <h4>Available Operations:</h4>
+
+    <h5>Workout Operations:</h5>
+    <ul>
+        <li><b>listWorkouts</b> - Get all workouts</li>
+        <li><b>getWorkout</b> - Get details of a specific workout (requires <code>workoutId</code>)</li>
+        <li><b>createWorkout</b> - Create a new workout
+            <pre>
+            msg.payload = {
+                name: "My Workout",
+                description: "A sample workout plan"
+            };
+            </pre>
+        </li>
+        <li><b>updateWorkout</b> - Update an existing workout (requires <code>workoutId</code>)</li>
+        <li><b>deleteWorkout</b> - Delete a workout (requires <code>workoutId</code>)</li>
+        <li><b>getWorkoutCanonical</b> - Get the canonical representation of a workout (requires <code>workoutId</code>)</li>
+        <li><b>getWorkoutLogData</b> - Get log data for a workout (requires <code>workoutId</code>)</li>
+    </ul>
+
+    <h5>Day Operations:</h5>
+    <ul>
+        <li><b>listDays</b> - Get all workout days</li>
+        <li><b>getDay</b> - Get details of a specific day (requires <code>dayId</code>)</li>
+        <li><b>createDay</b> - Create a new workout day
+            <pre>
+            msg.payload = {
+                description: "Monday - Chest Day",
+                workout: 123, // workout ID
+                day: [1] // day of week (1 = Monday)
+            };
+            </pre>
+        </li>
+        <li><b>updateDay</b> - Update an existing day (requires <code>dayId</code>)</li>
+        <li><b>deleteDay</b> - Delete a day (requires <code>dayId</code>)</li>
+    </ul>
+
+    <h5>Set Operations:</h5>
+    <ul>
+        <li><b>listSets</b> - Get all exercise sets</li>
+        <li><b>createSet</b> - Create a new exercise set
+            <pre>
+            msg.payload = {
+                exerciseday: 456, // day ID
+                exercise: 789,    // exercise ID
+                sets: 3,
+                repetitions: 10
+            };
+            </pre>
+        </li>
+        <li><b>updateSet</b> - Update an existing set (requires <code>setId</code>)</li>
+        <li><b>deleteSet</b> - Delete a set (requires <code>setId</code>)</li>
+    </ul>
+
+    <h5>Workout Session Operations:</h5>
+    <ul>
+        <li><b>listWorkoutSessions</b> - Get all workout sessions (optionally filter by <code>workoutId</code>)
+            <ul>
+                <li><code>workoutId</code> - Filter by workout (optional)</li>
+                <li><code>ordering</code> - Sort order (default: '-date' for latest first)</li>
+                <li><code>limit</code> - Limit results</li>
+                <li><code>offset</code> - Offset for pagination</li>
+            </ul>
+        </li>
+        <li><b>getWorkoutSession</b> - Get a specific workout session (requires <code>sessionId</code>)</li>
+        <li><b>createWorkoutSession</b> - Create a new workout session (requires <code>workout</code> and <code>date</code>)
+            <pre>
+            msg.payload = {
+                workout: 123,    // workout ID
+                date: "2025-04-25",
+                impression: "good", // 'good', 'neutral', or 'bad'
+                notes: "Great workout!"
+            };
+            </pre>
+        </li>
+        <li><b>updateWorkoutSession</b> - Update a workout session (requires <code>sessionId</code>)</li>
+        <li><b>deleteWorkoutSession</b> - Delete a workout session (requires <code>sessionId</code>)</li>
+        <li><b>getLatestWorkoutSession</b> - Get the most recent workout session
+            <ul>
+                <li><code>workoutId</code> - Filter by specific workout (optional)</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h4>Example Usage:</h4>
+    <p>To create a new workout with days and sets:</p>
+    <pre>
+    // First, create the workout
+    msg.payload = {
+        name: "Full Body Workout",
+        description: "A 3-day full body routine"
+    };
+    msg.operation = "createWorkout";
+
+    // After receiving the workout ID, create days
+    msg.payload = {
+        description: "Day 1 - Push",
+        workout: workoutId,
+        day: [1]
+    };
+    msg.operation = "createDay";
+
+    // Finally, add sets to the day
+    msg.payload = {
+        exerciseday: dayId,
+        exercise: benchPressId,
+        sets: 3,
+        repetitions: 10
+    };
+    msg.operation = "createSet";
+    </pre>
+
+    <p>To get your latest workout session:</p>
+    <pre>
+    // Get the most recent workout session
+    msg.operation = "getLatestWorkoutSession";
+    // Optionally filter by specific workout
+    msg.payload = {
+        workoutId: 123  // optional
+    };
+    </pre>
+</script>

@@ -1,0 +1,155 @@
+<script type="text/javascript">
+    RED.nodes.registerType('wger-api', {
+        category: 'Wger',
+        color: '#0090d1',
+        defaults: {
+            name: { value: "" },
+            server: { type: "wger-config", required: true },
+            method: { value: "GET", required: true },
+            endpoint: { value: "", required: true }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "wger.svg",
+        label: function() {
+            return this.name || "Wger API";
+        },
+        paletteLabel: "API",
+        oneditprepare: function() {
+            const node = this;
+            
+            // HTTP methods
+            const methods = [
+                { value: "GET", label: "GET" },
+                { value: "POST", label: "POST" },
+                { value: "PUT", label: "PUT" },
+                { value: "PATCH", label: "PATCH" },
+                { value: "DELETE", label: "DELETE" }
+            ];
+            
+            // Populate method dropdown
+            const $methodField = $('#node-input-method');
+            methods.forEach(method => {
+                $methodField.append($('<option>').val(method.value).text(method.label));
+            });
+            
+            // Set current value
+            $methodField.val(node.method);
+            
+            // Add endpoint validation/formatting
+            $("#node-input-endpoint").on('change', function() {
+                let endpoint = $(this).val();
+                // Ensure endpoint starts with /
+                if (endpoint && !endpoint.startsWith('/')) {
+                    $(this).val('/' + endpoint);
+                }
+            });
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="wger-api">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-server"><i class="fa fa-server"></i> Server</label>
+        <input type="text" id="node-input-server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-method"><i class="fa fa-exchange"></i> Method</label>
+        <select id="node-input-method"></select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-endpoint"><i class="fa fa-link"></i> Endpoint</label>
+        <input type="text" id="node-input-endpoint" placeholder="/api/v2/...">
+    </div>
+</script>
+
+<script type="text/html" data-help-name="wger-api">
+    <p>A generic node for making custom API requests to the Wger API.</p>
+    
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The data to send with POST, PUT, or PATCH requests, or query parameters for GET requests</dd>
+        <dt>method <span class="property-type">string</span></dt>
+        <dd>(Optional) Override the HTTP method specified in the node configuration</dd>
+        <dt>endpoint <span class="property-type">string</span></dt>
+        <dd>(Optional) Override the endpoint specified in the node configuration</dd>
+        <dt>params <span class="property-type">object</span></dt>
+        <dd>(Optional) Path parameters to replace in the endpoint URL</dd>
+        <dt>query <span class="property-type">object</span></dt>
+        <dd>(Optional) Query parameters for GET and DELETE requests</dd>
+    </dl>
+    
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The API response data</dd>
+    </dl>
+    
+    <h3>Details</h3>
+    <p>This node allows you to make any request to the Wger API. It's useful for operations not covered by the specialized nodes or for custom API endpoints.</p>
+    
+    <h4>Path Parameters:</h4>
+    <p>If your endpoint contains path parameters (e.g., <code>/api/v2/item/{id}/</code>), you can use the <code>msg.params</code> object to replace them:</p>
+    <pre>
+    msg.params = { id: 123 };
+    // This will result in: /api/v2/item/123/
+    </pre>
+    
+    <h4>Query Parameters:</h4>
+    <p>For GET requests or DELETE requests with query parameters, use <code>msg.query</code>:</p>
+    <pre>
+    msg.query = { 
+        limit: 10,
+        offset: 0,
+        ordering: '-date'
+    };
+    // This will result in: ?limit=10&offset=0&ordering=-date
+    </pre>
+    
+    <h4>Examples:</h4>
+    <p>Custom GET request with query parameters:</p>
+    <pre>
+    msg.method = "GET";
+    msg.endpoint = "/api/v2/exercise/";
+    msg.query = {
+        language: "en",
+        category: 10,
+        muscle: 1
+    };
+    return msg;
+    </pre>
+    
+    <p>Custom POST request:</p>
+    <pre>
+    msg.method = "POST";
+    msg.endpoint = "/api/v2/setting/";
+    msg.payload = {
+        weight_unit: "kg",
+        show_comments: true,
+        workout_reminder_active: false
+    };
+    return msg;
+    </pre>
+    
+    <p>Custom PATCH request with path parameter:</p>
+    <pre>
+    msg.method = "PATCH";
+    msg.endpoint = "/api/v2/workout/{id}/";
+    msg.params = { id: 456 };
+    msg.payload = {
+        description: "Updated workout description"
+    };
+    return msg;
+    </pre>
+    
+    <h4>Authentication:</h4>
+    <p>Authentication is handled automatically based on the configured server settings. Make sure to configure the server node with the appropriate authentication method (None, Token, or JWT).</p>
+    
+    <h4>Error Handling:</h4>
+    <p>Errors from the API will be caught and displayed in the node status. The error message will also be sent to the Node-RED debug panel.</p>
+</script>

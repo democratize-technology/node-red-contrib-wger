@@ -1,0 +1,137 @@
+<script type="text/javascript">
+  RED.nodes.registerType('wger-user', {
+    category: 'Wger',
+    color: '#0090d1',
+    defaults: {
+      name: { value: "" },
+      server: { type: "wger-config", required: true },
+      operation: { value: "getUserProfile", required: true }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "wger.svg",
+    label: function () {
+      return this.name || "Wger User";
+    },
+    paletteLabel: "User",
+    oneditprepare: function () {
+      const node = this;
+
+      // User operations
+      const operations = [
+        { value: "getUserProfile", label: "Get User Profile" },
+        { value: "updateUserProfile", label: "Update User Profile" },
+        { value: "getUserSettings", label: "Get User Settings" },
+        { value: "updateUserSettings", label: "Update User Settings" },
+        { value: "getUserInfo", label: "Get User Info" },
+        { value: "getApiKey", label: "Get API Key" },
+        { value: "createApiKey", label: "Create API Key" },
+        { value: "getMeasurements", label: "Get Measurement Categories" },
+        { value: "createMeasurement", label: "Create Measurement" },
+        { value: "getMeasurementEntries", label: "Get Measurement Entries" }
+      ];
+
+      // Populate operation dropdown
+      const $operationField = $('#node-input-operation');
+      operations.forEach(op => {
+        $operationField.append($('<option>').val(op.value).text(op.label));
+      });
+
+      // Set current value
+      $operationField.val(node.operation);
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="wger-user">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-server"><i class="fa fa-server"></i> Server</label>
+        <input type="text" id="node-input-server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-operation"><i class="fa fa-wrench"></i> Operation</label>
+        <select id="node-input-operation"></select>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="wger-user">
+    <p>A node to interact with Wger user management features.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The parameters required for the user operation</dd>
+        <dt>operation <span class="property-type">string</span></dt>
+        <dd>(Optional) Override the operation specified in the node configuration</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The result of the Wger user operation</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node provides access to Wger's user management features.</p>
+
+    <h4>Available Operations:</h4>
+    <ul>
+        <li><b>getUserProfile</b> - Get the user's profile information</li>
+        <li><b>updateUserProfile</b> - Update user profile (requires <code>profileId</code>)
+            <ul>
+                <li><code>age</code> - User's age</li>
+                <li><code>height</code> - Height in cm</li>
+                <li><code>gender</code> - Gender (1=male, 2=female)</li>
+                <li><code>sleep_hours</code> - Average sleep hours</li>
+                <li><code>work_hours</code> - Average work hours</li>
+                <li><code>work_intensity</code> - Work intensity (1-5)</li>
+                <li><code>sport_hours</code> - Average sport hours</li>
+                <li><code>sport_intensity</code> - Sport intensity (1-5)</li>
+            </ul>
+        </li>
+        <li><b>getUserSettings</b> - Get user settings</li>
+        <li><b>updateUserSettings</b> - Update user settings (requires <code>settingId</code>)
+            <ul>
+                <li><code>weight_unit</code> - Weight unit (kg or lb)</li>
+                <li><code>show_comments</code> - Show exercise comments</li>
+                <li><code>show_english_ingredients</code> - Show English ingredient names</li>
+                <li><code>workout_reminder_active</code> - Enable workout reminders</li>
+            </ul>
+        </li>
+        <li><b>getUserInfo</b> - Get basic user information</li>
+        <li><b>getApiKey</b> - Get user's API key</li>
+        <li><b>createApiKey</b> - Create a new API key</li>
+        <li><b>getMeasurements</b> - Get measurement categories</li>
+        <li><b>createMeasurement</b> - Create a new measurement (requires <code>category</code>, <code>value</code>, and <code>date</code>)</li>
+        <li><b>getMeasurementEntries</b> - Get measurement entries with optional filtering</li>
+    </ul>
+
+    <h4>Example Usage:</h4>
+    <p>To update user profile:</p>
+    <pre>
+    msg.payload = {
+        profileId: 1,
+        height: 180,
+        age: 30,
+        gender: 1
+    };
+    msg.operation = "updateUserProfile";
+    return msg;
+    </pre>
+
+    <p>To create a measurement:</p>
+    <pre>
+    msg.payload = {
+        category: 1, // Chest measurement category
+        value: 102.5,
+        date: "2025-04-25",
+        notes: "Measured after workout"
+    };
+    msg.operation = "createMeasurement";
+    return msg;
+    </pre>
+</script>

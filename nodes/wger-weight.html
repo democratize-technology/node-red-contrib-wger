@@ -1,0 +1,126 @@
+<script type="text/javascript">
+  RED.nodes.registerType('wger-weight', {
+    category: 'Wger',
+    color: '#0090d1',
+    defaults: {
+      name: { value: "" },
+      server: { type: "wger-config", required: true },
+      operation: { value: "listWeightEntries", required: true }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "wger.svg",
+    label: function () {
+      return this.name || "Wger Weight";
+    },
+    paletteLabel: "Weight",
+    oneditprepare: function () {
+      const node = this;
+
+      // Weight operations
+      const operations = [
+        { value: "listWeightEntries", label: "List Weight Entries" },
+        { value: "getWeightEntry", label: "Get Weight Entry" },
+        { value: "createWeightEntry", label: "Create Weight Entry" },
+        { value: "updateWeightEntry", label: "Update Weight Entry" },
+        { value: "deleteWeightEntry", label: "Delete Weight Entry" },
+        { value: "getWeightStats", label: "Get Weight Statistics" }
+      ];
+
+      // Populate operation dropdown
+      const $operationField = $('#node-input-operation');
+      operations.forEach(op => {
+        $operationField.append($('<option>').val(op.value).text(op.label));
+      });
+
+      // Set current value
+      $operationField.val(node.operation);
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="wger-weight">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-server"><i class="fa fa-server"></i> Server</label>
+        <input type="text" id="node-input-server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-operation"><i class="fa fa-wrench"></i> Operation</label>
+        <select id="node-input-operation"></select>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="wger-weight">
+    <p>A node to interact with Wger weight tracking features.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The parameters required for the weight operation</dd>
+        <dt>operation <span class="property-type">string</span></dt>
+        <dd>(Optional) Override the operation specified in the node configuration</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The result of the Wger weight operation</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node provides access to Wger's weight tracking features.</p>
+
+    <h4>Available Operations:</h4>
+    <ul>
+        <li><b>listWeightEntries</b> - Get a list of weight entries
+            <ul>
+                <li><code>startDate</code> - Start date for filtering (YYYY-MM-DD)</li>
+                <li><code>endDate</code> - End date for filtering (YYYY-MM-DD)</li>
+                <li><code>limit</code> - Number of results to return</li>
+                <li><code>offset</code> - Offset for pagination</li>
+            </ul>
+        </li>
+        <li><b>getWeightEntry</b> - Get details of a specific weight entry (requires <code>entryId</code>)</li>
+        <li><b>createWeightEntry</b> - Create a new weight entry (requires <code>weight</code> and <code>date</code>)
+            <ul>
+                <li><code>weight</code> - Weight value (required)</li>
+                <li><code>date</code> - Date in YYYY-MM-DD format (required)</li>
+                <li><code>comment</code> - Optional comment</li>
+            </ul>
+        </li>
+        <li><b>updateWeightEntry</b> - Update an existing weight entry (requires <code>entryId</code>)</li>
+        <li><b>deleteWeightEntry</b> - Delete a weight entry (requires <code>entryId</code>)</li>
+        <li><b>getWeightStats</b> - Get weight statistics for a date range
+            <ul>
+                <li><code>startDate</code> - Start date for filtering</li>
+                <li><code>endDate</code> - End date for filtering</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h4>Example Usage:</h4>
+    <p>To create a weight entry:</p>
+    <pre>
+    msg.payload = {
+        weight: 75.5,
+        date: "2025-04-25",
+        comment: "After workout"
+    };
+    msg.operation = "createWeightEntry";
+    return msg;
+    </pre>
+
+    <p>To get weight statistics:</p>
+    <pre>
+    msg.payload = {
+        startDate: "2025-01-01",
+        endDate: "2025-04-25"
+    };
+    msg.operation = "getWeightStats";
+    return msg;
+    </pre>
+</script>

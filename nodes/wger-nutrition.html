@@ -1,0 +1,180 @@
+<script type="text/javascript">
+    RED.nodes.registerType('wger-nutrition', {
+        category: 'Wger',
+        color: '#0090d1',
+        defaults: {
+            name: { value: "" },
+            server: { type: "wger-config", required: true },
+            operation: { value: "listNutritionPlans", required: true }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "wger.svg",
+        label: function () {
+            return this.name || "Wger Nutrition";
+        },
+        paletteLabel: "Nutrition",
+        oneditprepare: function () {
+            const node = this;
+
+            // Nutrition operations
+            const operations = [
+                { value: "listNutritionPlans", label: "List Nutrition Plans" },
+                { value: "getNutritionPlan", label: "Get Nutrition Plan" },
+                { value: "createNutritionPlan", label: "Create Nutrition Plan" },
+                { value: "updateNutritionPlan", label: "Update Nutrition Plan" },
+                { value: "deleteNutritionPlan", label: "Delete Nutrition Plan" },
+                { value: "getNutritionalValues", label: "Get Nutritional Values" },
+                { value: "listMeals", label: "List Meals" },
+                { value: "createMeal", label: "Create Meal" },
+                { value: "updateMeal", label: "Update Meal" },
+                { value: "deleteMeal", label: "Delete Meal" },
+                { value: "listMealItems", label: "List Meal Items" },
+                { value: "createMealItem", label: "Create Meal Item" },
+                { value: "updateMealItem", label: "Update Meal Item" },
+                { value: "deleteMealItem", label: "Delete Meal Item" },
+                { value: "searchIngredients", label: "Search Ingredients" },
+                { value: "getIngredient", label: "Get Ingredient" }
+            ];
+
+            // Populate operation dropdown
+            const $operationField = $('#node-input-operation');
+            operations.forEach(op => {
+                $operationField.append($('<option>').val(op.value).text(op.label));
+            });
+
+            // Set current value
+            $operationField.val(node.operation);
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="wger-nutrition">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-server"><i class="fa fa-server"></i> Server</label>
+        <input type="text" id="node-input-server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-operation"><i class="fa fa-wrench"></i> Operation</label>
+        <select id="node-input-operation"></select>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="wger-nutrition">
+    <p>A node to interact with Wger nutrition planning features.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The parameters required for the nutrition operation</dd>
+        <dt>operation <span class="property-type">string</span></dt>
+        <dd>(Optional) Override the operation specified in the node configuration</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The result of the Wger nutrition operation</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node provides comprehensive access to Wger's nutrition planning features, including plans, meals, ingredients, and nutritional values.</p>
+
+    <h4>Available Operations:</h4>
+
+    <h5>Nutrition Plan Operations:</h5>
+    <ul>
+        <li><b>listNutritionPlans</b> - Get all nutrition plans</li>
+        <li><b>getNutritionPlan</b> - Get detailed information about a nutrition plan (requires <code>planId</code>)</li>
+        <li><b>createNutritionPlan</b> - Create a new nutrition plan
+            <ul>
+                <li><code>description</code> - Plan description</li>
+                <li><code>only_logging</code> - Whether this is only for logging (boolean)</li>
+            </ul>
+        </li>
+        <li><b>updateNutritionPlan</b> - Update an existing nutrition plan (requires <code>planId</code>)</li>
+        <li><b>deleteNutritionPlan</b> - Delete a nutrition plan (requires <code>planId</code>)</li>
+        <li><b>getNutritionalValues</b> - Get calculated nutritional values for a plan (requires <code>planId</code>)</li>
+    </ul>
+
+    <h5>Meal Operations:</h5>
+    <ul>
+        <li><b>listMeals</b> - Get all meals (optionally filter by <code>planId</code>)</li>
+        <li><b>createMeal</b> - Create a new meal (requires <code>plan</code> and <code>time</code>)
+            <ul>
+                <li><code>plan</code> - Nutrition plan ID</li>
+                <li><code>time</code> - Time of day (HH:MM format)</li>
+                <li><code>name</code> - Optional meal name</li>
+            </ul>
+        </li>
+        <li><b>updateMeal</b> - Update an existing meal (requires <code>mealId</code>)</li>
+        <li><b>deleteMeal</b> - Delete a meal (requires <code>mealId</code>)</li>
+    </ul>
+
+    <h5>Meal Item Operations:</h5>
+    <ul>
+        <li><b>listMealItems</b> - Get all meal items (optionally filter by <code>mealId</code>)</li>
+        <li><b>createMealItem</b> - Create a new meal item (requires <code>meal</code>, <code>ingredient</code>, and <code>amount</code>)
+            <ul>
+                <li><code>meal</code> - Meal ID</li>
+                <li><code>ingredient</code> - Ingredient ID</li>
+                <li><code>amount</code> - Amount of ingredient</li>
+                <li><code>weight_unit</code> - Unit of measurement</li>
+            </ul>
+        </li>
+        <li><b>updateMealItem</b> - Update an existing meal item (requires <code>itemId</code>)</li>
+        <li><b>deleteMealItem</b> - Delete a meal item (requires <code>itemId</code>)</li>
+    </ul>
+
+    <h5>Ingredient Operations:</h5>
+    <ul>
+        <li><b>searchIngredients</b> - Search for ingredients (requires <code>term</code>)
+            <ul>
+                <li><code>term</code> - Search term</li>
+                <li><code>language</code> - Language code (default: 'en')</li>
+            </ul>
+        </li>
+        <li><b>getIngredient</b> - Get detailed information about an ingredient (requires <code>ingredientId</code>)</li>
+    </ul>
+
+    <h4>Example Usage:</h4>
+    <p>To create a nutrition plan with meals:</p>
+    <pre>
+    // First, create a nutrition plan
+    msg.payload = {
+        description: "Balanced Diet Plan",
+        only_logging: false
+    };
+    msg.operation = "createNutritionPlan";
+
+    // After receiving the plan ID, create a meal
+    msg.payload = {
+        plan: planId,
+        time: "08:00",
+        name: "Breakfast"
+    };
+    msg.operation = "createMeal";
+
+    // Finally, add items to the meal
+    msg.payload = {
+        meal: mealId,
+        ingredient: 123, // Oatmeal ID
+        amount: 100,
+        weight_unit: 1 // Grams
+    };
+    msg.operation = "createMealItem";
+    </pre>
+
+    <p>To search for ingredients:</p>
+    <pre>
+    msg.payload = {
+        term: "chicken breast",
+        language: "en"
+    };
+    msg.operation = "searchIngredients";
+    </pre>
+</script>

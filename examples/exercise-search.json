@@ -1,0 +1,140 @@
+[
+  {
+    "id": "exercise-search-flow",
+    "type": "tab",
+    "label": "Wger Exercise Search",
+    "disabled": false,
+    "info": "This flow demonstrates how to search for exercises using the Wger API."
+  },
+  {
+    "id": "wger-config-example",
+    "type": "wger-config",
+    "name": "Wger API",
+    "apiUrl": "https://wger.de",
+    "authType": "none"
+  },
+  {
+    "id": "inject-search",
+    "type": "inject",
+    "z": "exercise-search-flow",
+    "name": "Search for 'bench'",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"term\":\"bench\",\"language\":\"en\"}",
+    "payloadType": "json",
+    "x": 150,
+    "y": 100,
+    "wires": [["exercise-search-node"]]
+  },
+  {
+    "id": "exercise-search-node",
+    "type": "wger-exercise",
+    "z": "exercise-search-flow",
+    "name": "Search Exercises",
+    "server": "wger-config-example",
+    "operation": "searchExercises",
+    "x": 350,
+    "y": 100,
+    "wires": [["format-results", "debug-search"]]
+  },
+  {
+    "id": "format-results",
+    "type": "function",
+    "z": "exercise-search-flow",
+    "name": "Format Results",
+    "func": "// Extract exercise names and descriptions\nif (msg.payload && msg.payload.suggestions) {\n    msg.payload = msg.payload.suggestions.map(exercise => ({\n        id: exercise.data.id,\n        name: exercise.data.name,\n        category: exercise.data.category?.name,\n        equipment: exercise.data.equipment?.map(e => e.name),\n        muscles: exercise.data.muscles?.map(m => m.name)\n    }));\n} else {\n    msg.payload = [];\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 550,
+    "y": 100,
+    "wires": [["debug-formatted", "get-details"]]
+  },
+  {
+    "id": "debug-search",
+    "type": "debug",
+    "z": "exercise-search-flow",
+    "name": "Raw Search Results",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 570,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "debug-formatted",
+    "type": "debug",
+    "z": "exercise-search-flow",
+    "name": "Formatted Results",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 770,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "get-details",
+    "type": "function",
+    "z": "exercise-search-flow",
+    "name": "Get First Exercise",
+    "func": "// Get details for the first exercise\nif (msg.payload && msg.payload.length > 0) {\n    msg.payload = {\n        exerciseId: msg.payload[0].id\n    };\n    return msg;\n}\nreturn null;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 350,
+    "y": 200,
+    "wires": [["exercise-details-node"]]
+  },
+  {
+    "id": "exercise-details-node",
+    "type": "wger-exercise",
+    "z": "exercise-search-flow",
+    "name": "Get Exercise Details",
+    "server": "wger-config-example",
+    "operation": "getExercise",
+    "x": 570,
+    "y": 200,
+    "wires": [["debug-details"]]
+  },
+  {
+    "id": "debug-details",
+    "type": "debug",
+    "z": "exercise-search-flow",
+    "name": "Exercise Details",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 770,
+    "y": 200,
+    "wires": []
+  }
+]

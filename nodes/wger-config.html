@@ -1,0 +1,191 @@
+<script type="text/javascript">
+  RED.nodes.registerType('wger-config', {
+    category: 'config',
+    defaults: {
+      name: { value: "" },
+      apiUrl: { value: "https://wger.de", required: true },
+      authType: { value: "none", required: true }
+    },
+    credentials: {
+      token: { type: "password" },
+      username: { type: "text" },
+      password: { type: "password" }
+    },
+    label: function () {
+      return this.name || "wger server";
+    },
+    oneditprepare: function () {
+      const node = this;
+
+      // Authentication type change handler
+      $("#node-config-input-authType").on('change', function () {
+        const selectedAuth = $(this).val();
+        if (selectedAuth === "token" || selectedAuth === "jwt") {
+          $("#node-config-row-token").show();
+          $("#node-config-row-credentials").hide();
+        } else if (selectedAuth === "basic") {
+          $("#node-config-row-token").hide();
+          $("#node-config-row-credentials").show();
+        } else {
+          $("#node-config-row-token").hide();
+          $("#node-config-row-credentials").hide();
+        }
+      });
+
+      // Trigger initial state
+      $("#node-config-input-authType").trigger('change');
+
+      // API URL validation
+      $("#node-config-input-apiUrl").on('change', function () {
+        let url = $(this).val();
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+          $(this).val("https://" + url);
+        }
+        // Remove trailing slash if present
+        if (url.endsWith("/")) {
+          $(this).val(url.slice(0, -1));
+        }
+      });
+
+      // Test connection button
+      $("#node-config-test-connection").on('click', function () {
+        const node_id = $("#node-config-dialog").attr('node-id');
+        const apiUrl = $("#node-config-input-apiUrl").val();
+        const authType = $("#node-config-input-authType").val();
+
+        // Get credentials if available
+        const credentials = {};
+        if (authType === "token" || authType === "jwt") {
+          credentials.token = $("#node-config-input-token").val();
+        }
+
+        // Show loading state
+        const $button = $(this);
+        const $status = $("#node-config-test-connection-status");
+        const $statusMessage = $("#node-config-test-connection-message");
+
+        $button.prop('disabled', true);
+        $status.removeClass('success error').addClass('loading');
+        $statusMessage.text('Testing connection...');
+
+        // Make test request
+        $.ajax({
+          url: `wger-config/${node_id}/test`,
+          type: 'POST',
+          data: JSON.stringify({ apiUrl, authType, credentials }),
+          contentType: 'application/json; charset=utf-8',
+          success: function (response) {
+            $button.prop('disabled', false);
+            if (response.success) {
+              $status.removeClass('loading error').addClass('success');
+              $statusMessage.text('Connection successful!');
+            } else {
+              $status.removeClass('loading success').addClass('error');
+              $statusMessage.text(`Connection failed: ${response.message}`);
+            }
+          },
+          error: function (jqXHR, textStatus, errorThrown) {
+            $button.prop('disabled', false);
+            $status.removeClass('loading success').addClass('error');
+            $statusMessage.text(`Connection failed: ${errorThrown}`);
+          }
+        });
+      });
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="wger-config">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-config-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-apiUrl"><i class="fa fa-globe"></i> API URL</label>
+        <input type="text" id="node-config-input-apiUrl" placeholder="https://wger.de">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-authType"><i class="fa fa-lock"></i> Auth Type</label>
+        <select id="node-config-input-authType">
+            <option value="none">None</option>
+            <option value="token">Token</option>
+            <option value="jwt">JWT</option>
+        </select>
+    </div>
+    <div class="form-row" id="node-config-row-token">
+        <label for="node-config-input-token"><i class="fa fa-key"></i> Token</label>
+        <input type="password" id="node-config-input-token">
+    </div>
+    <div class="form-row" id="node-config-row-credentials" style="display: none;">
+        <label for="node-config-input-username"><i class="fa fa-user"></i> Username</label>
+        <input type="text" id="node-config-input-username">
+        <label for="node-config-input-password"><i class="fa fa-key"></i> Password</label>
+        <input type="password" id="node-config-input-password">
+    </div>
+    <div class="form-row">
+        <button type="button" id="node-config-test-connection" class="red-ui-button">Test Connection</button>
+        <span id="node-config-test-connection-status" class="test-status"></span>
+        <span id="node-config-test-connection-message" class="test-message"></span>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="wger-config">
+    <p>Configuration node for connecting to a wger API instance.</p>
+
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>API URL <span class="property-type">string</span></dt>
+        <dd>The base URL of your wger instance (e.g., https://wger.de)</dd>
+
+        <dt>Auth Type <span class="property-type">string</span></dt>
+        <dd>Authentication method (None, Token, JWT)</dd>
+
+        <dt>Token <span class="property-type">string</span></dt>
+        <dd>Your API token (required if using Token or JWT auth)</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node configures the connection to a wger instance. You can use the official https://wger.de server or your own self-hosted instance.</p>
+
+    <h3>Authentication</h3>
+    <p>The wger API supports several authentication methods:</p>
+    <ul>
+        <li><b>None</b> - For public endpoints (limited access)</li>
+        <li><b>Token</b> - Uses a permanent API token</li>
+        <li><b>JWT</b> - Uses JSON Web Tokens for authentication</li>
+    </ul>
+
+    <h3>References</h3>
+    <ul>
+        <li><a href="https://wger.de" target="_blank">wger Official Website</a></li>
+        <li><a href="https://wger.readthedocs.io/en/latest/api.html" target="_blank">API Documentation</a></li>
+        <li><a href="https://github.com/wger-project/wger" target="_blank">GitHub Repository</a></li>
+    </ul>
+</script>
+
+<style>
+  .test-status {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-left: 10px;
+  }
+
+  .test-status.loading {
+    background-color: #ffa500;
+  }
+
+  .test-status.success {
+    background-color: #28a745;
+  }
+
+  .test-status.error {
+    background-color: #dc3545;
+  }
+
+  .test-message {
+    margin-left: 10px;
+    color: #666;
+  }
+</style>

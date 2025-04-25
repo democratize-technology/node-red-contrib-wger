@@ -1,0 +1,126 @@
+<script type="text/javascript">
+  RED.nodes.registerType('wger-exercise', {
+    category: 'Wger',
+    color: '#0090d1',
+    defaults: {
+      name: { value: "" },
+      server: { type: "wger-config", required: true },
+      operation: { value: "listExercises", required: true }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "wger.svg",
+    label: function () {
+      return this.name || "Wger Exercise";
+    },
+    paletteLabel: "Exercise",
+    oneditprepare: function () {
+      const node = this;
+
+      // Exercise operations
+      const operations = [
+        { value: "listExercises", label: "List Exercises" },
+        { value: "searchExercises", label: "Search Exercises" },
+        { value: "getExercise", label: "Get Exercise Details" },
+        { value: "getExerciseByBarcode", label: "Get Exercise By Barcode" },
+        { value: "getExerciseImages", label: "Get Exercise Images" },
+        { value: "getExerciseComments", label: "Get Exercise Comments" },
+        { value: "getExerciseCategories", label: "Get Exercise Categories" },
+        { value: "getMuscles", label: "Get Muscles" },
+        { value: "getEquipment", label: "Get Equipment" }
+      ];
+
+      // Populate operation dropdown
+      const $operationField = $('#node-input-operation');
+      operations.forEach(op => {
+        $operationField.append($('<option>').val(op.value).text(op.label));
+      });
+
+      // Set current value
+      $operationField.val(node.operation);
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="wger-exercise">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-server"><i class="fa fa-server"></i> Server</label>
+        <input type="text" id="node-input-server">
+    </div>
+    <div class="form-row">
+        <label for="node-input-operation"><i class="fa fa-wrench"></i> Operation</label>
+        <select id="node-input-operation"></select>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="wger-exercise">
+    <p>A node to interact with Wger exercise management features.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The parameters required for the exercise operation</dd>
+        <dt>operation <span class="property-type">string</span></dt>
+        <dd>(Optional) Override the operation specified in the node configuration</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The result of the Wger exercise operation</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>This node provides access to Wger's exercise management functions.</p>
+
+    <h4>Available Operations:</h4>
+    <ul>
+        <li><b>listExercises</b> - Get a list of exercises with optional filters
+            <ul>
+                <li><code>limit</code> - Number of results to return</li>
+                <li><code>offset</code> - Offset for pagination</li>
+                <li><code>language</code> - Language code (default: 'en')</li>
+                <li><code>muscles</code> - Filter by muscle ID(s)</li>
+                <li><code>equipment</code> - Filter by equipment ID(s)</li>
+                <li><code>category</code> - Filter by category ID</li>
+            </ul>
+        </li>
+        <li><b>searchExercises</b> - Search exercises by term (requires <code>term</code> parameter)
+            <ul>
+                <li><code>term</code> - Search term (required)</li>
+                <li><code>language</code> - Language code (default: 'en')</li>
+            </ul>
+        </li>
+        <li><b>getExercise</b> - Get details of a specific exercise (requires <code>exerciseId</code>)</li>
+        <li><b>getExerciseByBarcode</b> - Get exercise details by barcode (requires <code>barcode</code>)</li>
+        <li><b>getExerciseImages</b> - Get images for a specific exercise (requires <code>exerciseId</code>)</li>
+        <li><b>getExerciseComments</b> - Get comments for a specific exercise (requires <code>exerciseId</code>)</li>
+        <li><b>getExerciseCategories</b> - Get all exercise categories</li>
+        <li><b>getMuscles</b> - Get all muscles</li>
+        <li><b>getEquipment</b> - Get all equipment types</li>
+    </ul>
+
+    <h4>Example Usage:</h4>
+    <p>To search for exercises:</p>
+    <pre>
+    msg.payload = {
+        term: "bench press",
+        language: "en"
+    };
+    msg.operation = "searchExercises";
+    return msg;
+    </pre>
+
+    <p>To get exercise details:</p>
+    <pre>
+    msg.payload = {
+        exerciseId: 123
+    };
+    msg.operation = "getExercise";
+    return msg;
+    </pre>
+</script>

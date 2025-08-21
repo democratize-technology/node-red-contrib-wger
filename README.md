@@ -154,4 +154,4 @@ MIT License - see LICENSE file for details.
 
 ## Support
 
-For issues and feature requests, please use the [GitHub issue tracker](https://github.com/yourusername/node-red-contrib-wger/issues).
+For issues and feature requests, please use the [GitHub issue tracker](https://github.com/democratize-technology/node-red-contrib-wger/issues).

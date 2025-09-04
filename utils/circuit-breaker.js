@@ -84,21 +84,21 @@ class CircuitBreaker {
     const now = Date.now();
     
     switch (this.state) {
-      case CircuitBreakerState.CLOSED:
+    case CircuitBreakerState.CLOSED:
+      return true;
+        
+    case CircuitBreakerState.OPEN:
+      if (now >= this.nextAttemptTime) {
+        this._transitionToHalfOpen();
         return true;
+      }
+      return false;
         
-      case CircuitBreakerState.OPEN:
-        if (now >= this.nextAttemptTime) {
-          this._transitionToHalfOpen();
-          return true;
-        }
-        return false;
+    case CircuitBreakerState.HALF_OPEN:
+      return this.halfOpenCallCount < this.halfOpenMaxCalls;
         
-      case CircuitBreakerState.HALF_OPEN:
-        return this.halfOpenCallCount < this.halfOpenMaxCalls;
-        
-      default:
-        return false;
+    default:
+      return false;
     }
   }
 
@@ -107,17 +107,17 @@ class CircuitBreaker {
    */
   onSuccess() {
     switch (this.state) {
-      case CircuitBreakerState.CLOSED:
-        this.failureCount = 0;
-        break;
+    case CircuitBreakerState.CLOSED:
+      this.failureCount = 0;
+      break;
         
-      case CircuitBreakerState.HALF_OPEN:
-        this.halfOpenCallCount++;
-        // If we've had enough successful calls in half-open state, close the circuit
-        if (this.halfOpenCallCount >= this.halfOpenMaxCalls) {
-          this._transitionToClosed();
-        }
-        break;
+    case CircuitBreakerState.HALF_OPEN:
+      this.halfOpenCallCount++;
+      // If we've had enough successful calls in half-open state, close the circuit
+      if (this.halfOpenCallCount >= this.halfOpenMaxCalls) {
+        this._transitionToClosed();
+      }
+      break;
     }
   }
 
@@ -128,15 +128,15 @@ class CircuitBreaker {
     this.failureCount++;
     
     switch (this.state) {
-      case CircuitBreakerState.CLOSED:
-        if (this.failureThreshold === 0 || this.failureCount >= this.failureThreshold) {
-          this._transitionToOpen();
-        }
-        break;
-        
-      case CircuitBreakerState.HALF_OPEN:
+    case CircuitBreakerState.CLOSED:
+      if (this.failureThreshold === 0 || this.failureCount >= this.failureThreshold) {
         this._transitionToOpen();
-        break;
+      }
+      break;
+        
+    case CircuitBreakerState.HALF_OPEN:
+      this._transitionToOpen();
+      break;
     }
   }
 

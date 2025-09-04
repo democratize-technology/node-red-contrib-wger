@@ -112,111 +112,113 @@ class InputValidator {
    */
   static validateType(value, type, fieldName) {
     switch (type) {
-      case this.TYPES.STRING:
-        if (typeof value !== 'string') {
-          // Safe coercion for primitives
-          if (typeof value === 'number' || typeof value === 'boolean') {
-            return String(value);
-          }
-          throw new Error(`Field '${fieldName}' must be a string, got ${typeof value}`);
+    case this.TYPES.STRING:
+      if (typeof value !== 'string') {
+        // Safe coercion for primitives
+        if (typeof value === 'number' || typeof value === 'boolean') {
+          return String(value);
         }
-        // Check for path traversal patterns immediately for string values
-        if (value.includes('../') || value.includes('..\\')) {
-          throw new Error(`Field '${fieldName}' contains invalid path traversal patterns`);
+        throw new Error(`Field '${fieldName}' must be a string, got ${typeof value}`);
+      }
+      // Check for path traversal patterns immediately for string values
+      if (value.includes('../') || value.includes('..\\')) {
+        throw new Error(`Field '${fieldName}' contains invalid path traversal patterns`);
+      }
+      return value;
+
+    case this.TYPES.NUMBER:
+      if (typeof value === 'string') {
+        const num = parseFloat(value);
+        if (isNaN(num)) {
+          throw new Error(`Field '${fieldName}' must be a valid number`);
+        }
+        return num;
+      }
+      if (typeof value !== 'number' || isNaN(value)) {
+        throw new Error(`Field '${fieldName}' must be a number`);
+      }
+      return value;
+
+    case this.TYPES.INTEGER: {
+      const intValue = typeof value === 'string' ? parseInt(value, 10) : value;
+      if (!Number.isInteger(intValue)) {
+        throw new Error(`Field '${fieldName}' must be an integer`);
+      }
+      return intValue;
+    }
+
+    case this.TYPES.BOOLEAN:
+      if (typeof value === 'string') {
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+      }
+      if (typeof value !== 'boolean') {
+        throw new Error(`Field '${fieldName}' must be a boolean`);
+      }
+      return value;
+
+    case this.TYPES.DATE:
+      if (value instanceof Date) {
+        if (isNaN(value.getTime())) {
+          throw new Error(`Field '${fieldName}' contains invalid date`);
+        }
+        return value.toISOString();
+      }
+      if (typeof value === 'string') {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) {
+          throw new Error(`Field '${fieldName}' must be a valid date string`);
         }
         return value;
+      }
+      throw new Error(`Field '${fieldName}' must be a date or date string`);
 
-      case this.TYPES.NUMBER:
-        if (typeof value === 'string') {
-          const num = parseFloat(value);
-          if (isNaN(num)) {
-            throw new Error(`Field '${fieldName}' must be a valid number`);
-          }
-          return num;
-        }
-        if (typeof value !== 'number' || isNaN(value)) {
-          throw new Error(`Field '${fieldName}' must be a number`);
-        }
+    case this.TYPES.EMAIL:
+      if (typeof value !== 'string' || !validator.isEmail(value)) {
+        throw new Error(`Field '${fieldName}' must be a valid email address`);
+      }
+      return validator.normalizeEmail(value);
+
+    case this.TYPES.URL:
+      if (typeof value !== 'string' || !validator.isURL(value, { require_protocol: true })) {
+        throw new Error(`Field '${fieldName}' must be a valid URL with protocol`);
+      }
+      return value;
+
+    case this.TYPES.ARRAY:
+      if (!Array.isArray(value)) {
+        throw new Error(`Field '${fieldName}' must be an array`);
+      }
+      return value;
+
+    case this.TYPES.OBJECT:
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        throw new Error(`Field '${fieldName}' must be an object`);
+      }
+      return value;
+
+    case this.TYPES.ID: {
+      if (typeof value !== 'string' && typeof value !== 'number') {
+        throw new Error(`Field '${fieldName}' must be a string or number ID`);
+      }
+      // Check for path traversal in ID values
+      const idStrCheck = String(value);
+      if (idStrCheck.includes('../') || idStrCheck.includes('..\\')) {
+        throw new Error(`Field '${fieldName}' contains invalid path traversal patterns`);
+      }
+      // Keep numeric IDs as numbers if they're valid integers
+      if (typeof value === 'number' && Number.isInteger(value)) {
         return value;
+      }
+      const idStr = String(value);
+      if (!this.PATTERNS.ID.test(idStr)) {
+        throw new Error(`Field '${fieldName}' contains invalid ID format`);
+      }
+      return idStr;
+    }
 
-      case this.TYPES.INTEGER:
-        const intValue = typeof value === 'string' ? parseInt(value, 10) : value;
-        if (!Number.isInteger(intValue)) {
-          throw new Error(`Field '${fieldName}' must be an integer`);
-        }
-        return intValue;
-
-      case this.TYPES.BOOLEAN:
-        if (typeof value === 'string') {
-          if (value === 'true') return true;
-          if (value === 'false') return false;
-        }
-        if (typeof value !== 'boolean') {
-          throw new Error(`Field '${fieldName}' must be a boolean`);
-        }
-        return value;
-
-      case this.TYPES.DATE:
-        if (value instanceof Date) {
-          if (isNaN(value.getTime())) {
-            throw new Error(`Field '${fieldName}' contains invalid date`);
-          }
-          return value.toISOString();
-        }
-        if (typeof value === 'string') {
-          const date = new Date(value);
-          if (isNaN(date.getTime())) {
-            throw new Error(`Field '${fieldName}' must be a valid date string`);
-          }
-          return value;
-        }
-        throw new Error(`Field '${fieldName}' must be a date or date string`);
-
-      case this.TYPES.EMAIL:
-        if (typeof value !== 'string' || !validator.isEmail(value)) {
-          throw new Error(`Field '${fieldName}' must be a valid email address`);
-        }
-        return validator.normalizeEmail(value);
-
-      case this.TYPES.URL:
-        if (typeof value !== 'string' || !validator.isURL(value, { require_protocol: true })) {
-          throw new Error(`Field '${fieldName}' must be a valid URL with protocol`);
-        }
-        return value;
-
-      case this.TYPES.ARRAY:
-        if (!Array.isArray(value)) {
-          throw new Error(`Field '${fieldName}' must be an array`);
-        }
-        return value;
-
-      case this.TYPES.OBJECT:
-        if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-          throw new Error(`Field '${fieldName}' must be an object`);
-        }
-        return value;
-
-      case this.TYPES.ID:
-        if (typeof value !== 'string' && typeof value !== 'number') {
-          throw new Error(`Field '${fieldName}' must be a string or number ID`);
-        }
-        // Check for path traversal in ID values
-        const idStrCheck = String(value);
-        if (idStrCheck.includes('../') || idStrCheck.includes('..\\')) {
-          throw new Error(`Field '${fieldName}' contains invalid path traversal patterns`);
-        }
-        // Keep numeric IDs as numbers if they're valid integers
-        if (typeof value === 'number' && Number.isInteger(value)) {
-          return value;
-        }
-        const idStr = String(value);
-        if (!this.PATTERNS.ID.test(idStr)) {
-          throw new Error(`Field '${fieldName}' contains invalid ID format`);
-        }
-        return idStr;
-
-      default:
-        return value;
+    default:
+      return value;
     }
   }
 

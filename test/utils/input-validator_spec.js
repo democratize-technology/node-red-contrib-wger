@@ -261,12 +261,12 @@ describe('InputValidator', function() {
       
       // SQL injection attempts
       const sqlComment = InputValidator.validatePayload({ 
-        query: "admin'--" 
+        query: 'admin\'--' 
       }, schema);
-      sqlComment.query.should.equal("admin'");  // Only end -- is removed
+      sqlComment.query.should.equal('admin\'');  // Only end -- is removed
       
       const sqlQuotes = InputValidator.validatePayload({ 
-        query: "'; DROP TABLE users;" 
+        query: '\'; DROP TABLE users;' 
       }, schema);
       sqlQuotes.query.should.equal('; DROP TABLE users;');  // Quote+semicolon becomes just semicolon
     });

@@ -19,7 +19,7 @@ const SECURITY_CONFIG = {
   // Whitelisted domains for wger instances
   WHITELISTED_DOMAINS: [
     'wger.de',
-    '*.wger.de',  // Subdomains like api.wger.de
+    '*.wger.de'  // Subdomains like api.wger.de
   ],
   
   // Private IP ranges (RFC 1918)

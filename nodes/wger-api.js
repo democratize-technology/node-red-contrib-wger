@@ -34,7 +34,7 @@ module.exports = function (RED) {
       // Validate based on HTTP method
       const methodLower = method.toLowerCase();
       const schema = validationSchemas.api[methodLower];
-      let validatedPayload = payload;
+      const validatedPayload = payload;
       
       if (schema) {
         try {
@@ -68,23 +68,23 @@ module.exports = function (RED) {
       // Execute the API request
       let result;
       switch (method.toUpperCase()) {
-        case 'GET':
-          result = await client.get(endpoint, payload.query || requestPayload);
-          break;
-        case 'POST':
-          result = await client.post(endpoint, requestPayload);
-          break;
-        case 'PUT':
-          result = await client.put(endpoint, requestPayload);
-          break;
-        case 'PATCH':
-          result = await client.patch(endpoint, requestPayload);
-          break;
-        case 'DELETE':
-          result = await client.delete(endpoint, payload.query);
-          break;
-        default:
-          throw new Error(`Unsupported HTTP method: ${method}`);
+      case 'GET':
+        result = await client.get(endpoint, payload.query || requestPayload);
+        break;
+      case 'POST':
+        result = await client.post(endpoint, requestPayload);
+        break;
+      case 'PUT':
+        result = await client.put(endpoint, requestPayload);
+        break;
+      case 'PATCH':
+        result = await client.patch(endpoint, requestPayload);
+        break;
+      case 'DELETE':
+        result = await client.delete(endpoint, payload.query);
+        break;
+      default:
+        throw new Error(`Unsupported HTTP method: ${method}`);
       }
 
       return result;

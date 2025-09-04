@@ -724,7 +724,7 @@ describe('wger-config Node', function () {
         const n1 = helper.getNode('n1');
         
         // Simulate concurrent access
-        let results = [];
+        const results = [];
         for (let i = 0; i < 10; i++) {
           results.push(n1.getAuthHeader());
         }

@@ -259,8 +259,8 @@ describe('WgerApiClient - Retry Functionality', function() {
         .onThirdCall().resolves({ data: { success: true } });
       
       // Two failures
-      try { await client.get('/api/v2/test'); } catch (e) {}
-      try { await client.get('/api/v2/test'); } catch (e) {}
+      try { await client.get('/api/v2/test'); } catch (e) { /* Expected failure */ }
+      try { await client.get('/api/v2/test'); } catch (e) { /* Expected failure */ }
       
       // Success should reset failure count
       const result = await client.get('/api/v2/test');

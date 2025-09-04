@@ -1,4 +1,3 @@
-const BaseNodeHandler = require('../../utils/base-node-handler');
 const OperationBuilders = require('../../utils/operation-builders');
 const { API, DEFAULTS } = require('../../utils/constants');
 const validationSchemas = require('../../utils/validation-schemas');

@@ -35,7 +35,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
+          authType: 'none'
         },
         {
           id: 'search',
@@ -82,7 +82,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://unreachable.wger.de',
-          authType: 'none',
+          authType: 'none'
         },
         {
           id: 'exercise',
@@ -133,7 +133,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'token',
+          authType: 'token'
         },
         {
           id: 'user',
@@ -193,7 +193,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
+          authType: 'none'
         },
         {
           id: 'exercise1',
@@ -225,7 +225,7 @@ describe('Integration Tests', function () {
         const exercise3 = helper.getNode('exercise3');
         const result = helper.getNode('result');
         
-        let responses = [];
+        const responses = [];
 
         result.on('input', function (msg) {
           responses.push(msg);
@@ -251,7 +251,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://httpstat.us/200?sleep=8000', // 8 second delay
-          authType: 'none',
+          authType: 'none'
         },
         {
           id: 'exercise',
@@ -289,7 +289,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
+          authType: 'none'
         },
         {
           id: 'exercise',
@@ -335,7 +335,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
+          authType: 'none'
         },
         {
           id: 'exercise',
@@ -372,7 +372,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
+          authType: 'none'
         },
         {
           id: 'exercise',
@@ -425,7 +425,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
+          authType: 'none'
         },
         {
           id: 'exercise',
@@ -467,7 +467,7 @@ describe('Integration Tests', function () {
 
   describe('Error Recovery and Resilience', function() {
     it('should recover from network failures', function (done) {
-      let requestCount = 0;
+      const requestCount = 0;
       const originalRequest = require('axios');
       
       // Mock axios to fail first request, succeed on retry
@@ -480,7 +480,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
+          authType: 'none'
         },
         {
           id: 'exercise',
@@ -524,7 +524,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://httpstat.us/200',
-          authType: 'none',
+          authType: 'none'
         },
         {
           id: 'api',
@@ -561,7 +561,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://httpstat.us/429',
-          authType: 'none',
+          authType: 'none'
         },
         {
           id: 'exercise',
@@ -599,7 +599,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
+          authType: 'none'
         },
         {
           id: 'exercise',
@@ -646,7 +646,7 @@ describe('Integration Tests', function () {
           id: 'config',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'token',
+          authType: 'token'
         },
         {
           id: 'user',

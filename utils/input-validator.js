@@ -120,6 +120,10 @@ class InputValidator {
           }
           throw new Error(`Field '${fieldName}' must be a string, got ${typeof value}`);
         }
+        // Check for path traversal patterns immediately for string values
+        if (value.includes('../') || value.includes('..\\')) {
+          throw new Error(`Field '${fieldName}' contains invalid path traversal patterns`);
+        }
         return value;
 
       case this.TYPES.NUMBER:
@@ -195,6 +199,11 @@ class InputValidator {
       case this.TYPES.ID:
         if (typeof value !== 'string' && typeof value !== 'number') {
           throw new Error(`Field '${fieldName}' must be a string or number ID`);
+        }
+        // Check for path traversal in ID values
+        const idStrCheck = String(value);
+        if (idStrCheck.includes('../') || idStrCheck.includes('..\\')) {
+          throw new Error(`Field '${fieldName}' contains invalid path traversal patterns`);
         }
         // Keep numeric IDs as numbers if they're valid integers
         if (typeof value === 'number' && Number.isInteger(value)) {
@@ -303,6 +312,11 @@ class InputValidator {
    * @returns {string} Sanitized string
    */
   static sanitizeString(value, options = {}) {
+    // Check for path traversal patterns before any other sanitization
+    if (value.includes('../') || value.includes('..\\')) {
+      throw new Error('Input contains path traversal patterns');
+    }
+    
     // Basic XSS protection
     let sanitized = xss(value, {
       whiteList: {},  // No HTML tags allowed by default

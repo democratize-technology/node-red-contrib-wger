@@ -918,8 +918,14 @@ const apiSchemas = {
       validate: (value) => {
         // Validate all param values are safe
         for (const [key, val] of Object.entries(value)) {
-          if (typeof val === 'string' && val.length > 1000) {
-            return `Parameter '${key}' is too long`;
+          if (typeof val === 'string') {
+            // Check for path traversal in parameters
+            if (val.includes('../') || val.includes('..\\')) {
+              return `Parameter '${key}' contains path traversal patterns`;
+            }
+            if (val.length > 1000) {
+              return `Parameter '${key}' is too long`;
+            }
           }
         }
         return true;
@@ -975,7 +981,22 @@ const apiSchemas = {
     },
     params: {
       type: TYPES.OBJECT,
-      required: false
+      required: false,
+      validate: (value) => {
+        // Validate all param values are safe
+        for (const [key, val] of Object.entries(value)) {
+          if (typeof val === 'string') {
+            // Check for path traversal in parameters
+            if (val.includes('../') || val.includes('..\\')) {
+              return `Parameter '${key}' contains path traversal patterns`;
+            }
+            if (val.length > 1000) {
+              return `Parameter '${key}' is too long`;
+            }
+          }
+        }
+        return true;
+      }
     }
   },
 
@@ -994,7 +1015,22 @@ const apiSchemas = {
     },
     params: {
       type: TYPES.OBJECT,
-      required: false
+      required: false,
+      validate: (value) => {
+        // Validate all param values are safe
+        for (const [key, val] of Object.entries(value)) {
+          if (typeof val === 'string') {
+            // Check for path traversal in parameters
+            if (val.includes('../') || val.includes('..\\')) {
+              return `Parameter '${key}' contains path traversal patterns`;
+            }
+            if (val.length > 1000) {
+              return `Parameter '${key}' is too long`;
+            }
+          }
+        }
+        return true;
+      }
     }
   },
 
@@ -1009,7 +1045,22 @@ const apiSchemas = {
     },
     params: {
       type: TYPES.OBJECT,
-      required: false
+      required: false,
+      validate: (value) => {
+        // Validate all param values are safe
+        for (const [key, val] of Object.entries(value)) {
+          if (typeof val === 'string') {
+            // Check for path traversal in parameters
+            if (val.includes('../') || val.includes('..\\')) {
+              return `Parameter '${key}' contains path traversal patterns`;
+            }
+            if (val.length > 1000) {
+              return `Parameter '${key}' is too long`;
+            }
+          }
+        }
+        return true;
+      }
     }
   }
 };

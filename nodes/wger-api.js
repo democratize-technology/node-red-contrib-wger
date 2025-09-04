@@ -57,13 +57,10 @@ module.exports = function (RED) {
       }
 
       // Process path parameters (after validation)
+      // Path traversal check is now handled in InputValidator.validateType
       if (payload.params && typeof endpoint === 'string') {
         Object.keys(payload.params).forEach((param) => {
           const paramValue = String(payload.params[param]);
-          // Additional safety check for path traversal
-          if (paramValue.includes('../') || paramValue.includes('..\\')) {
-            throw new Error(`Invalid parameter value: ${param}`);
-          }
           endpoint = endpoint.replace(`{${param}}`, encodeURIComponent(paramValue));
         });
       }
@@ -100,7 +97,7 @@ module.exports = function (RED) {
 
       try {
         // Initialize Wger client
-        const client = new WgerApiClient(node.server.apiUrl, node.server.getAuthHeader());
+        const client = new WgerApiClient(node.server.apiUrl, node.server.getAuthHeader(), node.server.getResilienceConfig());
         
         // Pass the entire message for processing
         const result = await handleApiOperation(client, null, {

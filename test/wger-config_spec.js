@@ -333,6 +333,187 @@ describe('wger-config Node', function () {
     });
   });
 
+  describe('Resilience Configuration', function() {
+    it('should use default resilience settings when not configured', function (done) {
+      const flow = [{ id: 'n1', type: 'wger-config' }];
+      helper.load(wgerConfigNode, flow, function () {
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('enableRetry', false);
+        n1.should.have.property('enableCircuitBreaker', false);
+        done();
+      });
+    });
+
+    it('should configure retry policy with default values', function (done) {
+      const flow = [{ 
+        id: 'n1', 
+        type: 'wger-config', 
+        enableRetry: true 
+      }];
+      helper.load(wgerConfigNode, flow, function () {
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('enableRetry', true);
+        n1.should.have.property('retryMaxAttempts', 3);
+        n1.should.have.property('retryBaseDelayMs', 1000);
+        n1.should.have.property('retryMaxDelayMs', 30000);
+        done();
+      });
+    });
+
+    it('should configure retry policy with custom values', function (done) {
+      const flow = [{ 
+        id: 'n1', 
+        type: 'wger-config', 
+        enableRetry: true,
+        retryMaxAttempts: 5,
+        retryBaseDelayMs: 500,
+        retryMaxDelayMs: 60000
+      }];
+      helper.load(wgerConfigNode, flow, function () {
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('enableRetry', true);
+        n1.should.have.property('retryMaxAttempts', 5);
+        n1.should.have.property('retryBaseDelayMs', 500);
+        n1.should.have.property('retryMaxDelayMs', 60000);
+        done();
+      });
+    });
+
+    it('should configure circuit breaker with default values', function (done) {
+      const flow = [{ 
+        id: 'n1', 
+        type: 'wger-config', 
+        enableCircuitBreaker: true 
+      }];
+      helper.load(wgerConfigNode, flow, function () {
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('enableCircuitBreaker', true);
+        n1.should.have.property('circuitBreakerFailureThreshold', 5);
+        n1.should.have.property('circuitBreakerResetTimeoutMs', 60000);
+        done();
+      });
+    });
+
+    it('should configure circuit breaker with custom values', function (done) {
+      const flow = [{ 
+        id: 'n1', 
+        type: 'wger-config', 
+        enableCircuitBreaker: true,
+        circuitBreakerFailureThreshold: 10,
+        circuitBreakerResetTimeoutMs: 120000
+      }];
+      helper.load(wgerConfigNode, flow, function () {
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('enableCircuitBreaker', true);
+        n1.should.have.property('circuitBreakerFailureThreshold', 10);
+        n1.should.have.property('circuitBreakerResetTimeoutMs', 120000);
+        done();
+      });
+    });
+
+    it('should handle string values for numeric resilience config', function (done) {
+      const flow = [{ 
+        id: 'n1', 
+        type: 'wger-config', 
+        enableRetry: true,
+        retryMaxAttempts: '7',
+        retryBaseDelayMs: '2000',
+        retryMaxDelayMs: '45000'
+      }];
+      helper.load(wgerConfigNode, flow, function () {
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('retryMaxAttempts', 7);
+        n1.should.have.property('retryBaseDelayMs', 2000);
+        n1.should.have.property('retryMaxDelayMs', 45000);
+        done();
+      });
+    });
+
+    it('should provide resilience configuration object', function (done) {
+      const flow = [{ 
+        id: 'n1', 
+        type: 'wger-config', 
+        enableRetry: true,
+        retryMaxAttempts: 4,
+        retryBaseDelayMs: 800,
+        retryMaxDelayMs: 25000,
+        enableCircuitBreaker: true,
+        circuitBreakerFailureThreshold: 7,
+        circuitBreakerResetTimeoutMs: 90000
+      }];
+      helper.load(wgerConfigNode, flow, function () {
+        const n1 = helper.getNode('n1');
+        const resilienceConfig = n1.getResilienceConfig();
+        
+        resilienceConfig.should.have.property('retry');
+        resilienceConfig.retry.should.have.property('maxAttempts', 4);
+        resilienceConfig.retry.should.have.property('baseDelayMs', 800);
+        resilienceConfig.retry.should.have.property('maxDelayMs', 25000);
+        
+        resilienceConfig.should.have.property('circuitBreaker');
+        resilienceConfig.circuitBreaker.should.have.property('failureThreshold', 7);
+        resilienceConfig.circuitBreaker.should.have.property('resetTimeoutMs', 90000);
+        done();
+      });
+    });
+
+    it('should provide empty resilience config when features disabled', function (done) {
+      const flow = [{ 
+        id: 'n1', 
+        type: 'wger-config', 
+        enableRetry: false,
+        enableCircuitBreaker: false
+      }];
+      helper.load(wgerConfigNode, flow, function () {
+        const n1 = helper.getNode('n1');
+        const resilienceConfig = n1.getResilienceConfig();
+        
+        resilienceConfig.should.not.have.property('retry');
+        resilienceConfig.should.not.have.property('circuitBreaker');
+        Object.keys(resilienceConfig).length.should.equal(0);
+        done();
+      });
+    });
+
+    it('should handle invalid numeric values gracefully', function (done) {
+      const flow = [{ 
+        id: 'n1', 
+        type: 'wger-config', 
+        enableRetry: true,
+        retryMaxAttempts: 'invalid',
+        retryBaseDelayMs: null,
+        retryMaxDelayMs: undefined
+      }];
+      helper.load(wgerConfigNode, flow, function () {
+        const n1 = helper.getNode('n1');
+        // Should fall back to defaults for invalid values
+        n1.should.have.property('retryMaxAttempts', 3);
+        n1.should.have.property('retryBaseDelayMs', 1000);
+        n1.should.have.property('retryMaxDelayMs', 30000);
+        done();
+      });
+    });
+
+    it('should handle both resilience features enabled together', function (done) {
+      const flow = [{ 
+        id: 'n1', 
+        type: 'wger-config', 
+        enableRetry: true,
+        enableCircuitBreaker: true
+      }];
+      helper.load(wgerConfigNode, flow, function () {
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('enableRetry', true);
+        n1.should.have.property('enableCircuitBreaker', true);
+        
+        const resilienceConfig = n1.getResilienceConfig();
+        resilienceConfig.should.have.property('retry');
+        resilienceConfig.should.have.property('circuitBreaker');
+        done();
+      });
+    });
+  });
+
   describe('Edge Cases and Error Handling', function() {
     it('should handle node creation with null properties', function (done) {
       const flow = [{ 

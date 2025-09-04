@@ -306,12 +306,12 @@ describe('InputValidator', function() {
       }, schema);
       valid.endpoint.should.equal('/api/v2/exercise/');
       
-      // Path traversal attempt
+      // Path traversal attempt - now caught at type validation level
       should.throws(() => {
         InputValidator.validatePayload({ 
           endpoint: '/api/../../../etc/passwd' 
         }, schema);
-      }, /cannot contain path traversal patterns/);
+      }, /contains invalid path traversal patterns/); // Changed message to match type validation
     });
   });
 
@@ -628,6 +628,148 @@ describe('InputValidator', function() {
         name: 'test\r\n\tname' 
       }, schema);
       control.name.should.equal('test\r\n\tname');
+    });
+  });
+
+  describe('Security - Path Traversal Prevention', function() {
+    it('should reject path traversal patterns in STRING type', function() {
+      const schema = {
+        path: { type: InputValidator.TYPES.STRING, required: true }
+      };
+      
+      // Should reject ../ pattern
+      should.throws(() => {
+        InputValidator.validatePayload({ path: '../etc/passwd' }, schema);
+      }, /contains invalid path traversal patterns/);
+      
+      // Should reject ..\\ pattern  
+      should.throws(() => {
+        InputValidator.validatePayload({ path: '..\\windows\\system32' }, schema);
+      }, /contains invalid path traversal patterns/);
+      
+      // Should reject mixed patterns
+      should.throws(() => {
+        InputValidator.validatePayload({ path: 'something/../../../etc/passwd' }, schema);
+      }, /contains invalid path traversal patterns/);
+    });
+
+    it('should reject path traversal patterns in ID type', function() {
+      const schema = {
+        id: { type: InputValidator.TYPES.ID, required: true }
+      };
+      
+      // Should reject ../ in ID values
+      should.throws(() => {
+        InputValidator.validatePayload({ id: '../123' }, schema);
+      }, /contains invalid path traversal patterns/);
+      
+      // Should reject ..\\ in ID values
+      should.throws(() => {
+        InputValidator.validatePayload({ id: '..\\456' }, schema);
+      }, /contains invalid path traversal patterns/);
+    });
+
+    it('should reject path traversal in sanitized strings', function() {
+      const schema = {
+        text: { type: InputValidator.TYPES.STRING, required: true, sanitize: true }
+      };
+      
+      // Should reject during sanitization
+      should.throws(() => {
+        InputValidator.validatePayload({ text: 'safe/../dangerous' }, schema);
+      }, /contains invalid path traversal patterns/);
+    });
+
+    it('should reject path traversal patterns in API endpoint validation', function() {
+      // Path traversal is now caught at type validation level before custom validation
+      const schema = {
+        endpoint: {
+          type: InputValidator.TYPES.STRING,
+          required: true
+        }
+      };
+      
+      // Path traversal is caught automatically during type validation
+      should.throws(() => {
+        InputValidator.validatePayload({ endpoint: '/api/v2/../admin' }, schema);
+      }, /contains invalid path traversal patterns/);
+    });
+
+    it('should properly validate safe paths without traversal', function() {
+      const schema = {
+        path: { type: InputValidator.TYPES.STRING, required: true }
+      };
+      
+      // These should all be valid
+      const valid1 = InputValidator.validatePayload({ path: '/api/v2/exercise/' }, schema);
+      valid1.path.should.equal('/api/v2/exercise/');
+      
+      const valid2 = InputValidator.validatePayload({ path: 'workouts/123/sets' }, schema);
+      valid2.path.should.equal('workouts/123/sets');
+      
+      const valid3 = InputValidator.validatePayload({ path: 'file.name.with.dots' }, schema);
+      valid3.path.should.equal('file.name.with.dots');
+    });
+  });
+
+  describe('Security - Parameter Validation', function() {
+    it('should validate object parameters for path traversal', function() {
+      const schema = {
+        params: {
+          type: InputValidator.TYPES.OBJECT,
+          required: false,
+          validate: (value) => {
+            for (const [key, val] of Object.entries(value)) {
+              if (typeof val === 'string') {
+                if (val.includes('../') || val.includes('..\\')) {
+                  return `Parameter '${key}' contains path traversal patterns`;
+                }
+              }
+            }
+            return true;
+          }
+        }
+      };
+      
+      // Should reject path traversal in object values
+      should.throws(() => {
+        InputValidator.validatePayload({ 
+          params: { id: '123', path: '../admin' }
+        }, schema);
+      }, /Parameter 'path' contains path traversal patterns/);
+      
+      // Should allow valid parameters
+      const valid = InputValidator.validatePayload({ 
+        params: { id: '123', name: 'test' }
+      }, schema);
+      valid.params.id.should.equal('123');
+    });
+  });
+
+  describe('Security - Prototype Pollution Prevention', function() {
+    it('should silently filter prototype pollution attempts', function() {
+      const schema = {
+        name: { type: InputValidator.TYPES.STRING, required: true }
+      };
+      
+      // Prototype pollution attempts are silently filtered in the unexpectedFields check
+      // The validator doesn't add these fields to the result
+      const payload1 = { name: 'test', __proto__: { evil: true } };
+      const result1 = InputValidator.validatePayload(payload1, schema);
+      result1.should.have.property('name', 'test');
+      Object.keys(result1).should.deepEqual(['name']); // Only validated fields are returned
+      
+      // Should silently ignore constructor
+      const payload2 = { name: 'test', constructor: { evil: true } };
+      const result2 = InputValidator.validatePayload(payload2, schema);
+      result2.should.have.property('name', 'test');
+      Object.keys(result2).should.deepEqual(['name']);
+      
+      // Should silently ignore prototype
+      const payload3 = { name: 'test', prototype: { evil: true } };
+      const result3 = InputValidator.validatePayload(payload3, schema);
+      result3.should.have.property('name', 'test');
+      Object.keys(result3).should.deepEqual(['name']);
     });
   });
 });

@@ -54,9 +54,44 @@ class WeightStatsCache {
    * @returns {string} Unique cache key
    */
   generateCacheKey(userId, startDate, endDate, options = {}) {
-    const baseKey = `${userId}_${startDate}_${endDate}`;
-    const optionsKey = options.groupBy ? `_${options.groupBy}` : '';
+    // Sanitize all inputs to prevent cache poisoning attacks
+    const sanitizedUserId = this.sanitizeCacheKeyComponent(userId);
+    const sanitizedStartDate = this.sanitizeCacheKeyComponent(startDate);
+    const sanitizedEndDate = this.sanitizeCacheKeyComponent(endDate);
+    const sanitizedGroupBy = options.groupBy ? this.sanitizeCacheKeyComponent(options.groupBy) : '';
+    
+    const baseKey = `${sanitizedUserId}_${sanitizedStartDate}_${sanitizedEndDate}`;
+    const optionsKey = sanitizedGroupBy ? `_${sanitizedGroupBy}` : '';
     return `weight_stats_${baseKey}${optionsKey}`;
+  }
+
+  /**
+   * Sanitizes a cache key component to prevent cache poisoning
+   * @private
+   * @param {string} value - Value to sanitize
+   * @returns {string} Sanitized value safe for use in cache keys
+   */
+  sanitizeCacheKeyComponent(value) {
+    // Check for empty/null/undefined before processing
+    if (!value && value !== 0) {
+      throw new Error('Invalid cache key component');
+    }
+    
+    // Convert to string and remove any characters that could be used for cache poisoning
+    const str = String(value)
+      // Remove path traversal patterns
+      .replace(/\.\./g, '')
+      // Remove special characters that could be used for injection
+      .replace(/[^a-zA-Z0-9\-_]/g, '_')
+      // Limit length to prevent overflow attacks
+      .substring(0, 100);
+    
+    // Additional validation: ensure the result is not empty after sanitization
+    if (!str) {
+      throw new Error('Invalid cache key component');
+    }
+    
+    return str;
   }
 
   /**

@@ -5,18 +5,21 @@ const proxyquire = require('proxyquire');
 describe('WgerApiClient', function () {
   let WgerApiClient;
   let client;
-  let axiosStub;
+  let fetchStub;
 
   beforeEach(function () {
-    axiosStub = sinon.stub();
-    WgerApiClient = proxyquire('../utils/api-client', {
-      'axios': axiosStub
-    });
+    fetchStub = sinon.stub();
+    
+    // Mock fetch globally since it's a native global
+    global.fetch = fetchStub;
+    
+    WgerApiClient = require('../utils/api-client');
     client = new WgerApiClient('https://test.api', { Authorization: 'Token test-token' });
   });
 
   afterEach(function () {
     sinon.restore();
+    delete global.fetch;
   });
 
   it('should create client with apiUrl and authHeader', function () {
@@ -27,62 +30,82 @@ describe('WgerApiClient', function () {
 
   describe('makeRequest', function () {
     it('should make GET request with params', async function () {
-      axiosStub.resolves({ data: { success: true } });
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve(JSON.stringify({ success: true }))
+      };
+      fetchStub.resolves(mockResponse);
       
       const result = await client.makeRequest('GET', '/test', null, { id: 123 });
       
       result.should.have.property('success', true);
-      axiosStub.should.have.been.calledOnce;
-      const callArgs = axiosStub.firstCall.args[0];
-      callArgs.should.have.property('method', 'GET');
-      callArgs.should.have.property('url', 'https://test.api/test');
-      callArgs.should.have.property('params');
-      callArgs.params.should.have.property('id', 123);
+      fetchStub.should.have.been.calledOnce;
+      const [url, options] = fetchStub.firstCall.args;
+      url.should.equal('https://test.api/test?id=123');
+      options.should.have.property('method', 'GET');
     });
 
     it('should make POST request with data', async function () {
-      axiosStub.resolves({ data: { created: true } });
+      const mockResponse = {
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        text: () => Promise.resolve(JSON.stringify({ created: true }))
+      };
+      fetchStub.resolves(mockResponse);
       
       const result = await client.makeRequest('POST', '/test', { name: 'test' });
       
       result.should.have.property('created', true);
-      axiosStub.should.have.been.calledOnce;
-      const callArgs = axiosStub.firstCall.args[0];
-      callArgs.should.have.property('method', 'POST');
-      callArgs.should.have.property('data');
-      callArgs.data.should.have.property('name', 'test');
+      fetchStub.should.have.been.calledOnce;
+      const [url, options] = fetchStub.firstCall.args;
+      url.should.equal('https://test.api/test');
+      options.should.have.property('method', 'POST');
+      options.should.have.property('body', JSON.stringify({ name: 'test' }));
     });
 
     it('should replace path parameters', async function () {
-      axiosStub.resolves({ data: { success: true } });
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve(JSON.stringify({ success: true }))
+      };
+      fetchStub.resolves(mockResponse);
       
       await client.makeRequest('GET', '/exercise/{id}', null, { id: 123 });
       
-      const callArgs = axiosStub.firstCall.args[0];
-      callArgs.should.have.property('url', 'https://test.api/exercise/123');
-      callArgs.should.have.property('params');
-      Object.keys(callArgs.params).length.should.equal(0);
+      const [url] = fetchStub.firstCall.args;
+      url.should.equal('https://test.api/exercise/123');
     });
 
     it('should include auth headers', async function () {
-      axiosStub.resolves({ data: { success: true } });
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve(JSON.stringify({ success: true }))
+      };
+      fetchStub.resolves(mockResponse);
       
       await client.makeRequest('GET', '/test');
       
-      const callArgs = axiosStub.firstCall.args[0];
-      callArgs.should.have.property('headers');
-      callArgs.headers.should.have.property('Authorization', 'Token test-token');
-      callArgs.headers.should.have.property('Content-Type', 'application/json');
+      const [, options] = fetchStub.firstCall.args;
+      options.should.have.property('headers');
+      options.headers.should.have.property('Authorization', 'Token test-token');
+      options.headers.should.have.property('Content-Type', 'application/json');
     });
 
     it('should handle error responses with detail', async function () {
-      axiosStub.rejects({
-        response: {
-          status: 404,
-          statusText: 'Not Found',
-          data: { detail: 'Resource not found' }
-        }
-      });
+      const mockResponse = {
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: () => Promise.resolve(JSON.stringify({ detail: 'Resource not found' }))
+      };
+      fetchStub.resolves(mockResponse);
       
       try {
         await client.makeRequest('GET', '/test');
@@ -95,13 +118,13 @@ describe('WgerApiClient', function () {
     });
 
     it('should handle error responses without detail', async function () {
-      axiosStub.rejects({
-        response: {
-          status: 500,
-          statusText: 'Internal Server Error',
-          data: {}
-        }
-      });
+      const mockResponse = {
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: () => Promise.resolve(JSON.stringify({}))
+      };
+      fetchStub.resolves(mockResponse);
       
       try {
         await client.makeRequest('GET', '/test');
@@ -113,9 +136,9 @@ describe('WgerApiClient', function () {
     });
 
     it('should handle network errors', async function () {
-      axiosStub.rejects({
-        request: {}
-      });
+      const networkError = new Error('fetch failed');
+      networkError.code = 'ECONNREFUSED';
+      fetchStub.rejects(networkError);
       
       try {
         await client.makeRequest('GET', '/test');
@@ -125,15 +148,17 @@ describe('WgerApiClient', function () {
       }
     });
 
-    it('should handle other errors', async function () {
-      const originalError = new Error('Something went wrong');
-      axiosStub.rejects(originalError);
+    it('should handle timeout errors', async function () {
+      const timeoutError = new Error('The operation was aborted');
+      timeoutError.name = 'AbortError';
+      fetchStub.rejects(timeoutError);
       
       try {
         await client.makeRequest('GET', '/test');
         should.fail('Should have thrown error');
       } catch (error) {
-        error.should.equal(originalError);
+        error.message.should.equal('Request timed out');
+        error.should.have.property('code', 'ETIMEDOUT');
       }
     });
   });
@@ -148,31 +173,31 @@ describe('WgerApiClient', function () {
     it('should call makeRequest with GET method', async function () {
       await client.get('/test', { id: 123 });
       
-      makeRequestStub.should.have.been.calledWith('GET', '/test', null, { id: 123 });
+      makeRequestStub.calledWith('GET', '/test', null, { id: 123 }).should.be.true();
     });
 
     it('should call makeRequest with POST method', async function () {
       await client.post('/test', { name: 'test' }, { id: 123 });
       
-      makeRequestStub.should.have.been.calledWith('POST', '/test', { name: 'test' }, { id: 123 });
+      makeRequestStub.calledWith('POST', '/test', { name: 'test' }, { id: 123 }).should.be.true();
     });
 
     it('should call makeRequest with PUT method', async function () {
       await client.put('/test', { name: 'test' }, { id: 123 });
       
-      makeRequestStub.should.have.been.calledWith('PUT', '/test', { name: 'test' }, { id: 123 });
+      makeRequestStub.calledWith('PUT', '/test', { name: 'test' }, { id: 123 }).should.be.true();
     });
 
     it('should call makeRequest with PATCH method', async function () {
       await client.patch('/test', { name: 'test' }, { id: 123 });
       
-      makeRequestStub.should.have.been.calledWith('PATCH', '/test', { name: 'test' }, { id: 123 });
+      makeRequestStub.calledWith('PATCH', '/test', { name: 'test' }, { id: 123 }).should.be.true();
     });
 
     it('should call makeRequest with DELETE method', async function () {
       await client.delete('/test', { id: 123 });
       
-      makeRequestStub.should.have.been.calledWith('DELETE', '/test', null, { id: 123 });
+      makeRequestStub.calledWith('DELETE', '/test', null, { id: 123 }).should.be.true();
     });
   });
 });

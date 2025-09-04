@@ -97,11 +97,8 @@
         const apiUrl = $("#node-config-input-apiUrl").val();
         const authType = $("#node-config-input-authType").val();
 
-        // Get credentials if available
-        const credentials = {};
-        if (authType === "token" || authType === "jwt") {
-          credentials.token = $("#node-config-input-token").val();
-        }
+        // Note: Credentials are NOT sent from client for security
+        // Server will use stored credentials via RED.nodes.getCredentials()
 
         // Show loading state
         const $button = $(this);
@@ -112,11 +109,11 @@
         $status.removeClass('success error').addClass('loading');
         $statusMessage.text('Testing connection...');
 
-        // Make test request
+        // Make test request - only send non-sensitive configuration
         $.ajax({
           url: `wger-config/${node_id}/test`,
           type: 'POST',
-          data: JSON.stringify({ apiUrl, authType, credentials }),
+          data: JSON.stringify({ apiUrl, authType }),
           contentType: 'application/json; charset=utf-8',
           success: function (response) {
             $button.prop('disabled', false);

@@ -40,6 +40,10 @@ const API = {
     SET_BY_ID: '/api/v2/set/{id}/',
     WORKOUT_SESSIONS: '/api/v2/workoutsession/',
     WORKOUT_SESSION_BY_ID: '/api/v2/workoutsession/{id}/',
+    WORKOUT_LOGS: '/api/v2/workoutlog/',
+    WORKOUT_LOG_BY_ID: '/api/v2/workoutlog/{id}/',
+    SCHEDULE: '/api/v2/schedule/',
+    SCHEDULE_STEP_BY_ID: '/api/v2/schedulestep/{id}/',
     
     NUTRITION_PLANS: '/api/v2/nutritionplan/',
     NUTRITION_PLAN_BY_ID: '/api/v2/nutritionplan/{id}/',
@@ -51,6 +55,10 @@ const API = {
     MEAL_ITEM_BY_ID: '/api/v2/mealitem/{id}/',
     INGREDIENT_SEARCH: '/api/v2/ingredient/search/',
     INGREDIENT_INFO: '/api/v2/ingredientinfo/{id}/',
+    INGREDIENT_CATEGORIES: '/api/v2/ingredientcategory/',
+    NUTRITION_DIARY: '/api/v2/nutritiondiary/',
+    NUTRITION_DIARY_BY_ID: '/api/v2/nutritiondiary/{id}/',
+    WEIGHT_UNITS: '/api/v2/ingredientweightunit/',
     
     WEIGHT_ENTRIES: '/api/v2/weightentry/',
     WEIGHT_ENTRY_BY_ID: '/api/v2/weightentry/{id}/',

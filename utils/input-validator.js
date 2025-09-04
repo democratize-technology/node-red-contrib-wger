@@ -329,7 +329,7 @@ class InputValidator {
     // Only remove dangerous patterns, not all quotes
     sanitized = sanitized
       .replace(/';|";/g, ';') // Replace quote+semicolon combinations  
-      .replace(/--$/gm, '') // Remove SQL comments at end of lines
+      .replace(/--/g, '') // Remove SQL comments (all -- patterns)
       .replace(/\/\*.*?\*\//g, ''); // Remove C-style comments
 
     // Remove null bytes
@@ -351,24 +351,26 @@ class InputValidator {
     }
 
     const validated = {};
-
-    // Validate defined schema fields
-    for (const [field, fieldSchema] of Object.entries(schema)) {
-      validated[field] = this.validateValue(payload[field], fieldSchema, field);
+    
+    // First, create a clean payload that excludes prototype pollution attempts
+    const cleanPayload = {};
+    for (const [key, value] of Object.entries(payload)) {
+      // Silently exclude prototype pollution attempts
+      if (key !== '__proto__' && key !== 'constructor' && key !== 'prototype') {
+        cleanPayload[key] = value;
+      }
     }
 
-    // Check for unexpected fields (strict mode)
+    // Validate defined schema fields from clean payload
+    for (const [field, fieldSchema] of Object.entries(schema)) {
+      validated[field] = this.validateValue(cleanPayload[field], fieldSchema, field);
+    }
+
+    // Check for unexpected fields (strict mode) using clean payload
     if (schema._strict !== false) {
       const schemaFields = Object.keys(schema).filter(f => !f.startsWith('_'));
-      const payloadFields = Object.keys(payload);
-      // Filter out prototype pollution attempts silently
-      const unexpectedFields = payloadFields.filter(f => {
-        // Ignore prototype pollution attempts
-        if (f === '__proto__' || f === 'constructor' || f === 'prototype') {
-          return false;
-        }
-        return !schemaFields.includes(f);
-      });
+      const payloadFields = Object.keys(cleanPayload);
+      const unexpectedFields = payloadFields.filter(f => !schemaFields.includes(f));
       
       if (unexpectedFields.length > 0) {
         throw new Error(`Unexpected fields in payload: ${unexpectedFields.join(', ')}`);

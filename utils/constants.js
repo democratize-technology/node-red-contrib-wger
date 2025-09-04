@@ -19,7 +19,7 @@ const API = {
   BASE_PATH: '/api/v2',
   
   ENDPOINTS: {
-    INFO: '/api/v2/info/',
+    INFO: '/api/v2/language/',  // Using language endpoint for connection testing (more universally available)
     
     EXERCISES: '/api/v2/exercisebaseinfo/',
     EXERCISE_BY_ID: '/api/v2/exercisebaseinfo/{id}/',

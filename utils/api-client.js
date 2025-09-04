@@ -1,13 +1,13 @@
 /**
  * @fileoverview HTTP client wrapper for the wger fitness API
  * @module utils/api-client
- * @requires axios
  * @requires ./constants
  * @version 1.0.0
  * @author Node-RED wger contrib team
  */
 
-const axios = require('axios');
+// Use native Node.js fetch (available in Node 18+, this project requires Node 20+)
+const { wrap } = require('cockatiel');
 const { API, STATUS } = require('./constants');
 const RetryPolicy = require('./retry-policy');
 const { CircuitBreaker } = require('./circuit-breaker');
@@ -54,6 +54,39 @@ class WgerApiClient {
     
     // Initialize circuit breaker if configuration provided
     this.circuitBreaker = resilience.circuitBreaker ? new CircuitBreaker(resilience.circuitBreaker) : null;
+    
+    // Create combined Cockatiel policy for efficient execution
+    this._createCombinedPolicy();
+  }
+
+  /**
+   * Creates a combined Cockatiel policy that wraps retry and circuit breaker together.
+   * This provides better performance than sequential application of policies.
+   * 
+   * @private
+   */
+  _createCombinedPolicy() {
+    if (!this.retryPolicy && !this.circuitBreaker) {
+      this._combinedPolicy = null;
+      return;
+    }
+
+    const policies = [];
+    
+    // Add retry policy first (inner layer)
+    if (this.retryPolicy) {
+      policies.push(this.retryPolicy.getCockatielPolicy());
+    }
+    
+    // Add circuit breaker policy second (outer layer)
+    if (this.circuitBreaker) {
+      policies.push(this.circuitBreaker.getCockatielPolicy());
+    }
+
+    // Wrap policies together for efficient execution
+    this._combinedPolicy = policies.length > 1 
+      ? wrap(...policies)
+      : policies[0];
   }
 
   /**
@@ -101,25 +134,25 @@ class WgerApiClient {
     };
 
     // If no resilience features configured, use original behavior
-    if (!this.retryPolicy && !this.circuitBreaker) {
+    if (!this._combinedPolicy) {
       return this._makeRequestWithoutRetry(config);
     }
 
-    // Use resilience-enabled request
-    return this._makeRequestWithResilience(config);
+    // Use Cockatiel policies for resilience
+    return this._makeRequestWithCockatiel(config);
   }
 
   /**
    * Makes a request without retry logic (original behavior).
    * 
    * @private
-   * @param {Object} config - Axios request configuration
+   * @param {Object} config - Request configuration (axios-compatible format)
    * @returns {Promise<*>} Response data from the API
    * @throws {Error} Enhanced error with status code and response data
    */
   async _makeRequestWithoutRetry(config) {
     try {
-      const response = await axios(config);
+      const response = await this._fetchWithConfig(config);
       return response.data;
     } catch (error) {
       throw this._enhanceError(error);
@@ -127,68 +160,154 @@ class WgerApiClient {
   }
 
   /**
-   * Makes a request with retry logic and circuit breaker pattern.
+   * Makes a request with Cockatiel resilience policies (retry and circuit breaker).
    * 
    * @private
-   * @param {Object} config - Axios request configuration
+   * @param {Object} config - Request configuration (axios-compatible format)
    * @returns {Promise<*>} Response data from the API
    * @throws {Error} Enhanced error with status code and response data
    */
-  async _makeRequestWithResilience(config) {
-    // Check circuit breaker first
-    if (this.circuitBreaker && !this.circuitBreaker.canExecute()) {
-      throw this.circuitBreaker.createCircuitOpenError();
+  async _makeRequestWithCockatiel(config) {
+    try {
+      const response = await this._combinedPolicy.execute(async () => {
+        const response = await this._fetchWithConfig(config);
+        return response;
+      });
+      
+      return response.data;
+    } catch (error) {
+      // Enhance error with our custom logic
+      throw this._enhanceError(error);
     }
-
-    let lastError;
-    const maxAttempts = this.retryPolicy ? this.retryPolicy.maxAttempts : 1;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const response = await axios(config);
-        
-        // Record success for circuit breaker
-        if (this.circuitBreaker) {
-          this.circuitBreaker.onSuccess();
-        }
-        
-        return response.data;
-      } catch (error) {
-        lastError = this._enhanceError(error);
-        
-        // Record failure for circuit breaker
-        if (this.circuitBreaker) {
-          this.circuitBreaker.onFailure();
-        }
-
-        // Determine if we should retry
-        const shouldRetry = this.retryPolicy && 
-                           this.retryPolicy.shouldRetry(lastError, attempt) &&
-                           attempt < maxAttempts;
-
-        if (!shouldRetry) {
-          // Add retry information to the final error
-          if (attempt > 1) {
-            lastError.message = `${lastError.message} (failed after ${attempt} attempts)`;
-            lastError.attemptCount = attempt;
-          }
-          throw lastError;
-        }
-
-        // Wait before next retry
-        await this.retryPolicy.delay(attempt);
-      }
-    }
-
-    // This should never be reached, but just in case
-    throw lastError;
   }
 
   /**
-   * Enhances an axios error with additional context and consistent format.
+   * Makes a fetch request using axios-compatible configuration.
    * 
    * @private
-   * @param {Error} error - Original axios error
+   * @param {Object} config - Request configuration in axios format
+   * @returns {Promise<Object>} Response object with { data, status, statusText }
+   * @throws {Error} Fetch error in axios-compatible format
+   */
+  async _fetchWithConfig(config) {
+    const { method, url, headers, params, data, timeout } = config;
+    
+    // Build URL with query parameters for GET requests
+    let finalUrl = url;
+    if (method === 'GET' && params && Object.keys(params).length > 0) {
+      const urlParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          urlParams.append(key, String(value));
+        }
+      });
+      finalUrl = `${url}?${urlParams.toString()}`;
+    }
+    
+    // Setup AbortController for timeout
+    const controller = new AbortController();
+    let timeoutId;
+    if (timeout && timeout > 0) {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeout);
+    }
+    
+    try {
+      // Build fetch options
+      const options = {
+        method,
+        headers,
+        signal: controller.signal
+      };
+      
+      // Add body for non-GET requests
+      if (method !== 'GET' && data !== null && data !== undefined) {
+        options.body = JSON.stringify(data);
+      }
+      
+      const response = await fetch(finalUrl, options);
+      
+      // Clear timeout if request completed
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
+      // Check if response is ok (2xx status)
+      if (!response.ok) {
+        // Create axios-style error for HTTP errors
+        const error = new Error(`HTTP Error ${response.status}`);
+        error.response = {
+          status: response.status,
+          statusText: response.statusText,
+          data: {}
+        };
+        
+        // Try to parse error response body
+        try {
+          const text = await response.text();
+          if (text) {
+            try {
+              error.response.data = JSON.parse(text);
+            } catch {
+              error.response.data = { message: text };
+            }
+          }
+        } catch {
+          // Ignore errors reading response body
+        }
+        
+        throw error;
+      }
+      
+      // Parse response data
+      let responseData;
+      try {
+        const text = await response.text();
+        responseData = text ? JSON.parse(text) : {};
+      } catch {
+        // If JSON parsing fails, return empty object
+        responseData = {};
+      }
+      
+      return {
+        data: responseData,
+        status: response.status,
+        statusText: response.statusText
+      };
+      
+    } catch (error) {
+      // Clear timeout if error occurred
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
+      // Handle AbortError (timeout or manual abort)
+      if (error.name === 'AbortError') {
+        const timeoutError = new Error('Request timed out');
+        timeoutError.code = 'ETIMEDOUT';
+        timeoutError.request = {};
+        throw timeoutError;
+      }
+      
+      // Handle network/connection errors (but not AbortError which was handled above)
+      if (error.name !== 'AbortError' && (error.cause || error.message.includes('fetch') || error.code)) {
+        const networkError = new Error('Network Error');
+        networkError.code = error.code || 'ECONNREFUSED';
+        networkError.request = {};
+        throw networkError;
+      }
+      
+      // Re-throw other errors (including HTTP errors we created above)
+      throw error;
+    }
+  }
+
+  /**
+   * Enhances a fetch error with additional context and consistent format.
+   * 
+   * @private
+   * @param {Error} error - Original fetch error
    * @returns {Error} Enhanced error with status code and response data
    */
   _enhanceError(error) {
@@ -202,6 +321,10 @@ class WgerApiClient {
       enhancedError.name = 'HttpResponseError';
       return enhancedError;
     } else if (error.request) {
+      // Check if it's already a timeout error (has the right code and message)
+      if (error.code === 'ETIMEDOUT' && error.message === 'Request timed out') {
+        return error; // Already properly formatted timeout error
+      }
       // Network error (no response received)
       const enhancedError = new Error(STATUS.MESSAGES.NO_RESPONSE);
       enhancedError.code = error.code;

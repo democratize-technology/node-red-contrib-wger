@@ -118,6 +118,8 @@ module.exports = function (RED) {
         }
       } catch (error) {
         node.status({ fill: STATUS.COLORS.RED, shape: STATUS.SHAPES.DOT, text: error.message });
+        // Always call done() if available (Node-RED 1.0+ best practice)
+        // For backwards compatibility with pre-1.0, fallback to node.error()
         if (done) {
           done(error);
         } else {

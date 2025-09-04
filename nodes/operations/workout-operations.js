@@ -161,6 +161,56 @@ const workoutOperations = {
       return sessions.results && sessions.results.length > 0 ? sessions.results[0] : null;
     },
     { workoutId: validationSchemas.workout.listWorkoutSessions.workoutId }
+  ),
+  
+  // Workout log operations
+  listWorkoutLogs: OperationBuilders.listOperation(
+    API.ENDPOINTS.WORKOUT_LOGS,
+    {
+      workout: 'workout',
+      limit: 'limit',
+      offset: 'offset'
+    },
+    validationSchemas.workout.listWorkoutLogs
+  ),
+  
+  createWorkoutLog: OperationBuilders.createOperation(
+    API.ENDPOINTS.WORKOUT_LOGS,
+    null,
+    validationSchemas.workout.createWorkoutLog
+  ),
+  
+  updateWorkoutLog: OperationBuilders.updateOperation(
+    API.ENDPOINTS.WORKOUT_LOG_BY_ID,
+    'logId',
+    'patch',
+    validationSchemas.workout.updateWorkoutLog
+  ),
+  
+  deleteWorkoutLog: OperationBuilders.deleteOperation(
+    API.ENDPOINTS.WORKOUT_LOG_BY_ID,
+    'logId',
+    validationSchemas.workout.deleteWorkoutLog
+  ),
+  
+  // Schedule operations
+  getSchedule: OperationBuilders.customOperation(
+    null,
+    async (client, payload) => {
+      const params = {
+        workout: payload.workoutId
+      };
+      if (payload.start_date) params.start_date = payload.start_date;
+      if (payload.end_date) params.end_date = payload.end_date;
+      return await client.get(API.ENDPOINTS.SCHEDULE, params);
+    },
+    validationSchemas.workout.getSchedule
+  ),
+  
+  getScheduleStep: OperationBuilders.getByIdOperation(
+    API.ENDPOINTS.SCHEDULE_STEP_BY_ID,
+    'scheduleId',
+    validationSchemas.workout.getScheduleStep
   )
 };
 

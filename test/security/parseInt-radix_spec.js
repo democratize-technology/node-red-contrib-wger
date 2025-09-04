@@ -32,17 +32,21 @@ describe('parseInt Radix Security Tests', function() {
       }];
 
       helper.load(wgerConfigNode, flow, function() {
-        const n1 = helper.getNode('n1');
-        should.exist(n1);
+        try {
+          const n1 = helper.getNode('n1');
+          should.exist(n1);
 
-        // With proper radix, these should be parsed as decimal
-        n1.retryMaxAttempts.should.equal(10); // Not octal 8
-        n1.retryBaseDelayMs.should.equal(0);  // Not hex 16, but 0 due to invalid decimal
-        n1.retryMaxDelayMs.should.equal(777);
-        n1.circuitBreakerFailureThreshold.should.equal(8); // Not octal, but decimal 8
-        n1.circuitBreakerResetTimeoutMs.should.equal(9);   // Not octal, but decimal 9
+          // With proper radix, these should be parsed as decimal
+          n1.retryMaxAttempts.should.equal(10); // Not octal 8
+          n1.retryBaseDelayMs.should.equal(1000);  // parseInt('0x10', 10) returns 0, but 0 || 1000 = 1000
+          n1.retryMaxDelayMs.should.equal(777);
+          n1.circuitBreakerFailureThreshold.should.equal(8); // Not octal, but decimal 8
+          n1.circuitBreakerResetTimeoutMs.should.equal(9);   // Not octal, but decimal 9
 
-        done();
+          done();
+        } catch (error) {
+          done(error);
+        }
       });
     });
 
@@ -56,14 +60,18 @@ describe('parseInt Radix Security Tests', function() {
       }];
 
       helper.load(wgerConfigNode, flow, function() {
-        const n1 = helper.getNode('n1');
-        should.exist(n1);
+        try {
+          const n1 = helper.getNode('n1');
+          should.exist(n1);
 
-        // With radix 10, these are parsed as decimal
-        n1.retryMaxAttempts.should.equal(77);  // Decimal 77, not octal 63
-        n1.circuitBreakerFailureThreshold.should.equal(11); // Decimal 11, not octal 9
+          // With radix 10, these are parsed as decimal
+          n1.retryMaxAttempts.should.equal(77);  // Decimal 77, not octal 63
+          n1.circuitBreakerFailureThreshold.should.equal(11); // Decimal 11, not octal 9
 
-        done();
+          done();
+        } catch (error) {
+          done(error);
+        }
       });
     });
 
@@ -77,14 +85,18 @@ describe('parseInt Radix Security Tests', function() {
       }];
 
       helper.load(wgerConfigNode, flow, function() {
-        const n1 = helper.getNode('n1');
-        should.exist(n1);
+        try {
+          const n1 = helper.getNode('n1');
+          should.exist(n1);
 
-        // With radix 10, hex notation is not parsed, results in NaN -> default values
-        n1.retryMaxAttempts.should.equal(3);    // Default value due to NaN
-        n1.retryBaseDelayMs.should.equal(1000); // Default value due to NaN
+          // With radix 10, hex notation is not parsed, results in NaN -> default values
+          n1.retryMaxAttempts.should.equal(3);    // Default value due to NaN
+          n1.retryBaseDelayMs.should.equal(1000); // Default value due to NaN
 
-        done();
+          done();
+        } catch (error) {
+          done(error);
+        }
       });
     });
 
@@ -101,17 +113,21 @@ describe('parseInt Radix Security Tests', function() {
       }];
 
       helper.load(wgerConfigNode, flow, function() {
-        const n1 = helper.getNode('n1');
-        should.exist(n1);
+        try {
+          const n1 = helper.getNode('n1');
+          should.exist(n1);
 
-        // Should use default values when parsing fails
-        n1.retryMaxAttempts.should.equal(3);
-        n1.retryBaseDelayMs.should.equal(1000);
-        n1.retryMaxDelayMs.should.equal(30000);
-        n1.circuitBreakerFailureThreshold.should.equal(5);
-        n1.circuitBreakerResetTimeoutMs.should.equal(60000);
+          // Should use default values when parsing fails
+          n1.retryMaxAttempts.should.equal(3);
+          n1.retryBaseDelayMs.should.equal(1000);
+          n1.retryMaxDelayMs.should.equal(30000);
+          n1.circuitBreakerFailureThreshold.should.equal(5);
+          n1.circuitBreakerResetTimeoutMs.should.equal(60000);
 
-        done();
+          done();
+        } catch (error) {
+          done(error);
+        }
       });
     });
   });
@@ -219,11 +235,15 @@ describe('parseInt Radix Security Tests', function() {
       }];
 
       helper.load(wgerConfigNode, flow, function() {
-        const n1 = helper.getNode('n1');
-        n1.retryMaxAttempts.should.equal(10);
-        n1.retryMaxAttempts.should.not.equal(8); // Ensure it's not parsed as octal
+        try {
+          const n1 = helper.getNode('n1');
+          n1.retryMaxAttempts.should.equal(10);
+          n1.retryMaxAttempts.should.not.equal(8); // Ensure it's not parsed as octal
 
-        done();
+          done();
+        } catch (error) {
+          done(error);
+        }
       });
     });
 
@@ -236,12 +256,16 @@ describe('parseInt Radix Security Tests', function() {
       }];
 
       helper.load(wgerConfigNode, flow, function() {
-        const n1 = helper.getNode('n1');
-        // Should use default value because 0x10 is not valid decimal
-        n1.retryMaxAttempts.should.equal(3); // Default value
-        n1.retryMaxAttempts.should.not.equal(16); // Not hex interpretation
+        try {
+          const n1 = helper.getNode('n1');
+          // Should use default value because 0x10 is not valid decimal
+          n1.retryMaxAttempts.should.equal(3); // Default value
+          n1.retryMaxAttempts.should.not.equal(16); // Not hex interpretation
 
-        done();
+          done();
+        } catch (error) {
+          done(error);
+        }
       });
     });
 

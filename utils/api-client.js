@@ -93,11 +93,11 @@ class WgerApiClient {
       url: `${this.apiUrl}${endpoint}`,
       headers: {
         ...this.authHeader,
-        'Content-Type': API.HEADERS.CONTENT_TYPE,
+        'Content-Type': API.HEADERS.CONTENT_TYPE
       },
       params: method === 'GET' ? params : undefined,
       data: method !== 'GET' ? data : undefined,
-      timeout: API.CONNECTION_TIMEOUT,
+      timeout: API.CONNECTION_TIMEOUT
     };
 
     // If no resilience features configured, use original behavior
@@ -195,7 +195,7 @@ class WgerApiClient {
     if (error.response) {
       // HTTP response error (4xx, 5xx)
       const enhancedError = new Error(
-        error.response.data.detail || error.response.statusText || STATUS.MESSAGES.API_REQUEST_FAILED,
+        error.response.data.detail || error.response.statusText || STATUS.MESSAGES.API_REQUEST_FAILED
       );
       enhancedError.status = error.response.status;
       enhancedError.data = error.response.data;

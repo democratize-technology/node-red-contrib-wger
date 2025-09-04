@@ -155,39 +155,39 @@ class TestHelper {
     const success = this.createSuccessScenarios();
 
     switch (scenario) {
-      case 'network-failure':
-        apiMock.get.rejects(errors.networkError);
-        apiMock.post.rejects(errors.networkError);
-        break;
+    case 'network-failure':
+      apiMock.get.rejects(errors.networkError);
+      apiMock.post.rejects(errors.networkError);
+      break;
 
-      case 'timeout':
-        apiMock.get.rejects(errors.timeoutError);
-        break;
+    case 'timeout':
+      apiMock.get.rejects(errors.timeoutError);
+      break;
 
-      case 'unauthorized':
-        apiMock.get.rejects(errors.unauthorized);
-        apiMock.post.rejects(errors.unauthorized);
-        break;
+    case 'unauthorized':
+      apiMock.get.rejects(errors.unauthorized);
+      apiMock.post.rejects(errors.unauthorized);
+      break;
 
-      case 'rate-limited':
-        apiMock.get.rejects(errors.rateLimited);
-        break;
+    case 'rate-limited':
+      apiMock.get.rejects(errors.rateLimited);
+      break;
 
-      case 'server-error':
-        apiMock.get.rejects(errors.serverError);
-        break;
+    case 'server-error':
+      apiMock.get.rejects(errors.serverError);
+      break;
 
-      case 'success-with-data':
-        apiMock.get.resolves(success.exerciseList);
-        apiMock.post.resolves(success.singleExercise);
-        break;
+    case 'success-with-data':
+      apiMock.get.resolves(success.exerciseList);
+      apiMock.post.resolves(success.singleExercise);
+      break;
 
-      case 'empty-results':
-        apiMock.get.resolves(success.emptyList);
-        break;
+    case 'empty-results':
+      apiMock.get.resolves(success.emptyList);
+      break;
 
-      default:
-        throw new Error(`Unknown scenario: ${scenario}`);
+    default:
+      throw new Error(`Unknown scenario: ${scenario}`);
     }
   }
 

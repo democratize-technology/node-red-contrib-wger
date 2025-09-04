@@ -287,7 +287,7 @@ describe('Input Validation Security Tests', function() {
     
     it('should sanitize SQL injection attempts in search', async function() {
       const payload = {
-        term: "bench' OR '1'='1"
+        term: 'bench\' OR \'1\'=\'1'
       };
       
       mockApiClient.get.resolves({ results: [] });

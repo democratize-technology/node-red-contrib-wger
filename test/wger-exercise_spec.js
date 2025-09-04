@@ -34,8 +34,8 @@ describe('wger-exercise Node', function () {
           id: 'n1',
           type: 'wger-exercise',
           operation: 'searchExercises',
-          wires: [[]],
-        },
+          wires: [[]]
+        }
       ];
 
       helper.load(wgerExerciseNode, flow, function () {
@@ -59,15 +59,15 @@ describe('wger-exercise Node', function () {
           id: 'n1',
           type: 'wger-exercise',
           server: 'c1',
-          wires: [[]],
+          wires: [[]]
         },
         {
           id: 'c1',
           type: 'wger-config',
           name: 'test config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -90,15 +90,15 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'invalidOperation',
           server: 'c1',
-          wires: [[]],
+          wires: [[]]
         },
         {
           id: 'c1',
           type: 'wger-config',
           name: 'test config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -122,7 +122,7 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'searchExercises',
           server: 'c1',
-          wires: [['n2']],
+          wires: [['n2']]
         },
         { id: 'n2', type: 'helper' },
         {
@@ -130,8 +130,8 @@ describe('wger-exercise Node', function () {
           type: 'wger-config',
           name: 'test config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -175,14 +175,14 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'searchExercises',
           server: 'c1',
-          wires: [[]],
+          wires: [[]]
         },
         {
           id: 'c1',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -204,15 +204,15 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'searchExercises', 
           server: 'c1',
-          wires: [['n2']],
+          wires: [['n2']]
         },
         { id: 'n2', type: 'helper' },
         {
           id: 'c1',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -240,14 +240,14 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'searchExercises',
           server: 'c1',
-          wires: [[]],
+          wires: [[]]
         },
         {
           id: 'c1',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -271,14 +271,14 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'listExercises',
           server: 'c1',
-          wires: [[]],
+          wires: [[]]
         },
         {
           id: 'c1',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -306,14 +306,14 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'searchExercises',
           server: 'c1',
-          wires: [[]],
+          wires: [[]]
         },
         {
           id: 'c1',
           type: 'wger-config',
           apiUrl: 'https://unreachable.wger.de',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -336,14 +336,14 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'searchExercises',
           server: 'c1',
-          wires: [[]],
+          wires: [[]]
         },
         {
           id: 'c1',
           type: 'wger-config',
           apiUrl: 'https://httpstat.us/200?sleep=10000',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -366,14 +366,14 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'searchExercises',
           server: 'c1',
-          wires: [[]],
+          wires: [[]]
         },
         {
           id: 'c1',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'token',
-        },
+          authType: 'token'
+        }
       ];
 
       const credentials = { 
@@ -400,14 +400,14 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'searchExercises',
           server: 'c1',
-          wires: [[]],
+          wires: [[]]
         },
         {
           id: 'c1',
           type: 'wger-config',
           apiUrl: 'https://httpstat.us/429',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -430,14 +430,14 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'searchExercises',
           server: 'c1', 
-          wires: [[]],
+          wires: [[]]
         },
         {
           id: 'c1',
           type: 'wger-config',
           apiUrl: 'https://httpstat.us/200',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -464,7 +464,7 @@ describe('wger-exercise Node', function () {
           name: 'search node',
           operation: 'searchExercises',
           server: 'c1',
-          wires: [['n2']],
+          wires: [['n2']]
         },
         { id: 'n2', type: 'helper' },
         {
@@ -472,8 +472,8 @@ describe('wger-exercise Node', function () {
           type: 'wger-config',
           name: 'test config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -512,15 +512,15 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'searchExercises',
           server: 'c1',
-          wires: [['n2']],
+          wires: [['n2']]
         },
         { id: 'n2', type: 'helper' },
         {
           id: 'c1',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -544,15 +544,15 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'searchExercises',
           server: 'c1',
-          wires: [['n2']],
+          wires: [['n2']]
         },
         { id: 'n2', type: 'helper' },
         {
           id: 'c1',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {
@@ -582,15 +582,15 @@ describe('wger-exercise Node', function () {
           type: 'wger-exercise',
           operation: 'searchExercises',
           server: 'c1',
-          wires: [['n2']],
+          wires: [['n2']]
         },
         { id: 'n2', type: 'helper' },
         {
           id: 'c1',
           type: 'wger-config',
           apiUrl: 'https://wger.de',
-          authType: 'none',
-        },
+          authType: 'none'
+        }
       ];
 
       helper.load([wgerExerciseNode, wgerConfigNode], flow, function () {

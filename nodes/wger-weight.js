@@ -110,7 +110,7 @@ module.exports = function (RED) {
       const entries = await client.get(API.ENDPOINTS.WEIGHT_ENTRIES, {
         date__gte: validatedPayload.startDate,
         date__lte: validatedPayload.endDate,
-        ordering: '-date',
+        ordering: '-date'
       });
       
       result = calculateStats(entries);

@@ -43,7 +43,7 @@ describe('Credential Transmission Security Tests', function() {
           .post('/wger-config/test-node/test')
           .send({
             apiUrl: 'https://wger.de',
-            authType: 'token',
+            authType: 'token'
             // Deliberately NOT including credentials - this simulates the security fix
             // where credentials are not sent from client
           })

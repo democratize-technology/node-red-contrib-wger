@@ -93,7 +93,7 @@ module.exports = function (RED) {
           method: 'GET',
           url: `${validationResult.normalizedUrl || this.apiUrl}${API.ENDPOINTS.INFO}`,
           headers: this.getAuthHeader(),
-          timeout: API.CONNECTION_TIMEOUT,
+          timeout: API.CONNECTION_TIMEOUT
         });
         return { 
           success: true, 
@@ -115,8 +115,8 @@ module.exports = function (RED) {
     credentials: {
       token: { type: NODE_RED.CREDENTIAL_TYPES.PASSWORD },
       username: { type: NODE_RED.CREDENTIAL_TYPES.TEXT },
-      password: { type: NODE_RED.CREDENTIAL_TYPES.PASSWORD },
-    },
+      password: { type: NODE_RED.CREDENTIAL_TYPES.PASSWORD }
+    }
   });
 
   // Helper function to get auth header for test connection
@@ -189,7 +189,7 @@ module.exports = function (RED) {
             method: 'GET',
             url: `${validationResult.normalizedUrl || testConfig.apiUrl}${API.ENDPOINTS.INFO}`,
             headers: authHeader,
-            timeout: API.CONNECTION_TIMEOUT,
+            timeout: API.CONNECTION_TIMEOUT
           });
           res.json({ 
             success: true, 

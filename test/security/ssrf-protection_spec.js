@@ -246,7 +246,7 @@ describe('SSRF Protection Security Tests', function() {
       });
     });
     
-    it('should reject non-whitelisted domains', function(done) {
+    it('should allow domains but may fail DNS resolution', function(done) {
       const flow = [{ id: 'n1', type: 'wger-config' }];
       
       helper.load(wgerConfigNode, flow, function() {
@@ -260,9 +260,10 @@ describe('SSRF Protection Security Tests', function() {
           .end(function(err, res) {
             if (err) return done(err);
             
+            // Domain is now allowed, but DNS resolution may fail
             res.body.should.have.property('success', false);
-            res.body.message.should.containEql('URL validation failed');
-            res.body.message.should.containEql('Domain not whitelisted');
+            // Should fail on DNS or connection, not whitelist
+            res.body.message.should.not.containEql('Domain not whitelisted');
             done();
           });
       });

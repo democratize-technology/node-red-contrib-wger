@@ -16,11 +16,27 @@ describe('Credential Transmission Security Tests', function() {
   
   beforeEach(function(done) {
     // Mock axios to capture HTTP requests and verify credentials are not transmitted
-    axiosStub = sinon.stub(require('axios'), 'default');
+    axiosStub = sinon.stub().resolves({ status: 200, data: {} });
+    const Module = require('module');
+    if (!Module.prototype._originalRequire) {
+      Module.prototype._originalRequire = Module.prototype.require;
+    }
+    Module.prototype.require = function(...args) {
+      if (args[0] === 'axios') {
+        return axiosStub;
+      }
+      return Module.prototype._originalRequire.apply(this, args);
+    };
     helper.startServer(done);
   });
 
   afterEach(function(done) {
+    // Restore original require
+    const Module = require('module');
+    if (Module.prototype._originalRequire) {
+      Module.prototype.require = Module.prototype._originalRequire;
+      delete Module.prototype._originalRequire;
+    }
     sinon.restore();
     helper.unload();
     helper.stopServer(done);

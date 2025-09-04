@@ -5,6 +5,7 @@
       name: { value: "" },
       apiUrl: { value: "https://wger.de", required: true },
       authType: { value: "none", required: true },
+      allowPrivateHosts: { value: false },
       // Retry configuration
       enableRetry: { value: false },
       retryMaxAttempts: { value: 3, validate: RED.validators.number() },
@@ -110,10 +111,11 @@
         $statusMessage.text('Testing connection...');
 
         // Make test request - only send non-sensitive configuration
+        const allowPrivateHosts = $("#node-config-input-allowPrivateHosts").is(':checked');
         $.ajax({
           url: `wger-config/${node_id}/test`,
           type: 'POST',
-          data: JSON.stringify({ apiUrl, authType }),
+          data: JSON.stringify({ apiUrl, authType, allowPrivateHosts }),
           contentType: 'application/json; charset=utf-8',
           success: function (response) {
             $button.prop('disabled', false);
@@ -162,6 +164,15 @@
         <input type="text" id="node-config-input-username">
         <label for="node-config-input-password"><i class="fa fa-key"></i> Password</label>
         <input type="password" id="node-config-input-password">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-allowPrivateHosts">
+            <input type="checkbox" id="node-config-input-allowPrivateHosts" style="width: auto; margin-right: 8px;">
+            <i class="fa fa-shield"></i> Allow Private Hosts
+        </label>
+        <div class="form-tips" style="margin-left: 20px; font-size: 11px; color: #666;">
+            Enable for self-hosted instances on private networks (localhost, 192.168.x.x, 10.x.x.x, etc.)
+        </div>
     </div>
 
     <!-- Resilience Configuration Section -->

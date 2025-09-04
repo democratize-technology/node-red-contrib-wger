@@ -4,15 +4,19 @@
 
 const should = require('should');
 const sinon = require('sinon');
-
-// Create a fresh instance for testing to avoid conflicts with global axios
-const WgerApiClient = require('../../utils/api-client');
+const proxyquire = require('proxyquire');
 
 describe('WgerApiClient - Retry Functionality', function() {
+  let WgerApiClient;
+  let axiosStub;
   let sandbox;
 
   beforeEach(function() {
     sandbox = sinon.createSandbox();
+    axiosStub = sinon.stub();
+    WgerApiClient = proxyquire('../../utils/api-client', {
+      'axios': axiosStub
+    });
   });
 
   afterEach(function() {
@@ -66,9 +70,7 @@ describe('WgerApiClient - Retry Functionality', function() {
     it('should use original behavior when no resilience configured', async function() {
       const client = new WgerApiClient('https://wger.de', {});
       
-      // Mock axios at the module level
-      const axios = require('axios');
-      const axiosStub = sandbox.stub(axios, 'default').resolves({ data: { test: 'data' } });
+      axiosStub.resolves({ data: { test: 'data' } });
       
       const result = await client.get('/api/v2/test');
       result.should.deepEqual({ test: 'data' });
@@ -82,8 +84,13 @@ describe('WgerApiClient - Retry Functionality', function() {
         retry: { maxAttempts: 3, baseDelayMs: 100 }
       });
       
-      const error503 = new Error('Service Unavailable');
-      error503.response = { status: 503, statusText: 'Service Unavailable' };
+      const error503 = {
+        response: { 
+          status: 503, 
+          statusText: 'Service Unavailable',
+          data: { detail: 'Service temporarily unavailable' }
+        }
+      };
       
       axiosStub
         .onFirstCall().rejects(error503)
@@ -100,8 +107,13 @@ describe('WgerApiClient - Retry Functionality', function() {
         retry: { maxAttempts: 3, baseDelayMs: 100 }
       });
       
-      const error404 = new Error('Not Found');
-      error404.response = { status: 404, statusText: 'Not Found' };
+      const error404 = {
+        response: { 
+          status: 404, 
+          statusText: 'Not Found',
+          data: { detail: 'Resource not found' }
+        }
+      };
       
       axiosStub.rejects(error404);
       
@@ -142,8 +154,13 @@ describe('WgerApiClient - Retry Functionality', function() {
         retry: { maxAttempts: 2, baseDelayMs: 100 }
       });
       
-      const error503 = new Error('Service Unavailable');
-      error503.response = { status: 503, statusText: 'Service Unavailable' };
+      const error503 = {
+        response: { 
+          status: 503, 
+          statusText: 'Service Unavailable',
+          data: { detail: 'Service temporarily unavailable' }
+        }
+      };
       
       axiosStub.rejects(error503);
       
@@ -165,8 +182,13 @@ describe('WgerApiClient - Retry Functionality', function() {
         retry: { maxAttempts: 3, baseDelayMs: 100 }
       });
       
-      const rateLimitError = new Error('Too Many Requests');
-      rateLimitError.response = { status: 429, statusText: 'Too Many Requests' };
+      const rateLimitError = {
+        response: { 
+          status: 429, 
+          statusText: 'Too Many Requests',
+          data: { detail: 'Rate limit exceeded' }
+        }
+      };
       
       axiosStub
         .onFirstCall().rejects(rateLimitError)
@@ -184,8 +206,13 @@ describe('WgerApiClient - Retry Functionality', function() {
         circuitBreaker: { failureThreshold: 3, resetTimeoutMs: 60000 }
       });
       
-      const error503 = new Error('Service Unavailable');
-      error503.response = { status: 503, statusText: 'Service Unavailable' };
+      const error503 = {
+        response: { 
+          status: 503, 
+          statusText: 'Service Unavailable',
+          data: { detail: 'Service temporarily unavailable' }
+        }
+      };
       
       axiosStub.rejects(error503);
       
@@ -217,8 +244,13 @@ describe('WgerApiClient - Retry Functionality', function() {
         circuitBreaker: { failureThreshold: 3, resetTimeoutMs: 60000 }
       });
       
-      const error503 = new Error('Service Unavailable');
-      error503.response = { status: 503, statusText: 'Service Unavailable' };
+      const error503 = {
+        response: { 
+          status: 503, 
+          statusText: 'Service Unavailable',
+          data: { detail: 'Service temporarily unavailable' }
+        }
+      };
       
       // Fail twice, then succeed
       axiosStub
@@ -248,8 +280,13 @@ describe('WgerApiClient - Retry Functionality', function() {
         circuitBreaker: { failureThreshold: 4, resetTimeoutMs: 60000 }
       });
       
-      const error503 = new Error('Service Unavailable');
-      error503.response = { status: 503, statusText: 'Service Unavailable' };
+      const error503 = {
+        response: { 
+          status: 503, 
+          statusText: 'Service Unavailable',
+          data: { detail: 'Service temporarily unavailable' }
+        }
+      };
       
       axiosStub.rejects(error503);
       

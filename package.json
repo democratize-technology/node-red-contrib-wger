@@ -36,6 +36,7 @@
     "xss": "^1.0.15"
   },
   "devDependencies": {
+    "eslint": "^8.57.0",
     "mocha": "^10.2.0",
     "node-red": "^4.1.0",
     "node-red-node-test-helper": "^0.3.5",
@@ -60,6 +61,8 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "test": "mocha test/**/*_spec.js"
+    "test": "mocha test/**/*_spec.js",
+    "lint": "eslint nodes/ utils/ test/ --ext .js",
+    "lint:fix": "eslint nodes/ utils/ test/ --ext .js --fix"
   }
 }

@@ -92,7 +92,7 @@ module.exports = function (RED) {
       try {
         const response = await axios({
           method: 'GET',
-          url: `${validationResult.normalizedUrl || this.apiUrl}${API.ENDPOINTS.INFO}`,
+          url: `${(validationResult.normalizedUrl || this.apiUrl).replace(/\/$/, '')}${API.ENDPOINTS.INFO}`,
           headers: this.getAuthHeader(),
           timeout: API.CONNECTION_TIMEOUT
         });
@@ -124,9 +124,9 @@ module.exports = function (RED) {
   function getAuthHeaderForTest(config) {
     const { authType, credentials } = config;
     
-    if (authType === 'token' && credentials.token) {
+    if (authType === 'token' && credentials && credentials.token) {
       return { Authorization: `Token ${credentials.token}` };
-    } else if (authType === 'jwt' && credentials.token) {
+    } else if (authType === 'jwt' && credentials && credentials.token) {
       return { Authorization: `Bearer ${credentials.token}` };
     }
     
@@ -187,22 +187,43 @@ module.exports = function (RED) {
         const authHeader = getAuthHeaderForTest(testConfig);
         
         try {
+          const baseUrl = (validationResult.normalizedUrl || testConfig.apiUrl).replace(/\/$/, '');
+          const testUrl = `${baseUrl}${API.ENDPOINTS.INFO}`;
           const response = await axios({
             method: 'GET',
-            url: `${validationResult.normalizedUrl || testConfig.apiUrl}${API.ENDPOINTS.INFO}`,
+            url: testUrl,
             headers: authHeader,
             timeout: API.CONNECTION_TIMEOUT
           });
+          
+          let responseInfo = 'Connection successful';
+          if (response.data && response.data.count !== undefined) {
+            responseInfo += ` (${response.data.count} language entries found)`;
+          }
+          
           res.json({ 
             success: true, 
+            message: responseInfo,
             data: response.data,
             warnings: validationResult.warnings 
           });
         } catch (error) {
+          let errorMessage = 'Connection failed';
+          if (error.response) {
+            errorMessage += `: ${error.response.status} ${error.response.statusText}`;
+            if (error.response.status === 401) {
+              errorMessage += ' (Authentication required - check your token)';
+            } else if (error.response.status === 404) {
+              errorMessage += ' (API endpoint not found - check wger version)';
+            }
+          } else {
+            errorMessage += `: ${error.message}`;
+          }
+          
           res.json({
             success: false,
             status: error.response ? error.response.status : 0,
-            message: error.response ? error.response.statusText : error.message,
+            message: errorMessage,
             warnings: validationResult.warnings
           });
         }

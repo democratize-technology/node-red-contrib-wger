@@ -168,7 +168,7 @@ class InputValidator {
             if (issue.code === 'invalid_union') {
               return { message: `Field '${fieldName}' must be a valid number` };
             }
-            return { message: issue.message || `Field '${fieldName}' must be a number` };
+            return { message: issue.message || `Field '${fieldName}' must be a valid number` };
           }
         });
         break;
@@ -432,15 +432,15 @@ class InputValidator {
 
     // Custom validation function
     if (schema.validate) {
-      zodSchema = zodSchema.refine(
-        (value) => {
-          const result = schema.validate(value, fieldName);
-          return result === true;
-        },
-        (value) => ({
-          message: schema.validate(value, fieldName) || `Field '${fieldName}' failed custom validation`
-        })
-      );
+      zodSchema = zodSchema.superRefine((value, ctx) => {
+        const result = schema.validate(value, fieldName);
+        if (result !== true) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: result || `Field '${fieldName}' failed custom validation`
+          });
+        }
+      });
     }
 
     return zodSchema;

@@ -8,7 +8,7 @@
  */
 
 const axios = require('axios');
-const { API, STATUS, ERRORS } = require('./constants');
+const { API, STATUS } = require('./constants');
 const RetryPolicy = require('./retry-policy');
 const { CircuitBreaker } = require('./circuit-breaker');
 

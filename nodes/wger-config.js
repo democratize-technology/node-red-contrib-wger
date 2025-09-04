@@ -1,4 +1,4 @@
-const { API, AUTH, DEFAULTS, STATUS, NODE_RED } = require('../utils/constants');
+const { API, AUTH, DEFAULTS, NODE_RED } = require('../utils/constants');
 const { validateUrl, validateUrlSync, isDevEnvironment } = require('../utils/url-validator');
 
 module.exports = function (RED) {

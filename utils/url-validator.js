@@ -385,7 +385,7 @@ function validateUrlSync(urlString, options = {}) {
   };
   
   // Run the async validation synchronously (without DNS parts)
-  const validationPromise = validateUrl(urlString, syncOptions);
+  const _validationPromise = validateUrl(urlString, syncOptions);
   
   // Since we're skipping DNS, this should resolve immediately
   // In practice, we'll need to extract the synchronous parts

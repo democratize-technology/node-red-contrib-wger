@@ -1,6 +1,6 @@
 const BaseNodeHandler = require('../utils/base-node-handler');
 const WgerApiClient = require('../utils/api-client');
-const { STATUS, ERRORS } = require('../utils/constants');
+const { STATUS } = require('../utils/constants');
 const InputValidator = require('../utils/input-validator');
 const validationSchemas = require('../utils/validation-schemas');
 
@@ -34,7 +34,7 @@ module.exports = function (RED) {
       // Validate based on HTTP method
       const methodLower = method.toLowerCase();
       const schema = validationSchemas.api[methodLower];
-      const validatedPayload = payload;
+      // const _validatedPayload = payload; // Reserved for future validation
       
       if (schema) {
         try {

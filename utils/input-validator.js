@@ -2,13 +2,20 @@
  * @fileoverview Comprehensive input validation and sanitization utility
  * @module utils/input-validator
  * @requires validator
- * @requires xss
- * @version 1.0.0
+ * @requires dompurify
+ * @requires zod
+ * @version 2.0.0
  * @author Node-RED wger contrib team
  */
 
 const validator = require('validator');
-const xss = require('xss');
+const { z } = require('zod');
+const createDOMPurify = require('dompurify');
+const { JSDOM } = require('jsdom');
+
+// Initialize DOMPurify for Node.js environment
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
 
 /**
  * Comprehensive input validation utility with security-first design.
@@ -88,7 +95,7 @@ class InputValidator {
    * @throws {Error} If validation fails
    */
   static validateValue(value, schema, fieldName) {
-    // Handle undefined/null based on required setting
+    // Handle undefined/null based on required setting first
     if (value === undefined || value === null) {
       if (schema.required) {
         throw new Error(`Required field '${fieldName}' is missing or null`);
@@ -96,148 +103,233 @@ class InputValidator {
       return schema.default !== undefined ? schema.default : value;
     }
 
-    // Type validation
-    const validatedValue = this.validateType(value, schema.type, fieldName);
-
-    // Additional validations based on schema
-    return this.applyValidationRules(validatedValue, schema, fieldName);
-  }
-
-  /**
-   * Validate type and perform type coercion if safe
-   * @param {*} value - Value to validate
-   * @param {string} type - Expected type
-   * @param {string} fieldName - Field name for errors
-   * @returns {*} Type-validated value
-   */
-  static validateType(value, type, fieldName) {
-    switch (type) {
-    case this.TYPES.STRING:
-      if (typeof value !== 'string') {
-        // Safe coercion for primitives
-        if (typeof value === 'number' || typeof value === 'boolean') {
-          return String(value);
-        }
-        throw new Error(`Field '${fieldName}' must be a string, got ${typeof value}`);
+    try {
+      const zodSchema = this._buildZodSchema(schema, fieldName);
+      return zodSchema.parse(value);
+    } catch (error) {
+      if (error.issues) {
+        // Zod validation error - convert to expected format
+        const issue = error.issues[0];
+        throw new Error(this._formatZodError(issue, fieldName, schema));
       }
-      // Check for path traversal patterns immediately for string values
-      if (value.includes('../') || value.includes('..\\')) {
-        throw new Error(`Field '${fieldName}' contains invalid path traversal patterns`);
-      }
-      return value;
-
-    case this.TYPES.NUMBER:
-      if (typeof value === 'string') {
-        const num = parseFloat(value);
-        if (isNaN(num)) {
-          throw new Error(`Field '${fieldName}' must be a valid number`);
-        }
-        return num;
-      }
-      if (typeof value !== 'number' || isNaN(value)) {
-        throw new Error(`Field '${fieldName}' must be a number`);
-      }
-      return value;
-
-    case this.TYPES.INTEGER: {
-      const intValue = typeof value === 'string' ? parseInt(value, 10) : value;
-      if (!Number.isInteger(intValue)) {
-        throw new Error(`Field '${fieldName}' must be an integer`);
-      }
-      return intValue;
-    }
-
-    case this.TYPES.BOOLEAN:
-      if (typeof value === 'string') {
-        if (value === 'true') return true;
-        if (value === 'false') return false;
-      }
-      if (typeof value !== 'boolean') {
-        throw new Error(`Field '${fieldName}' must be a boolean`);
-      }
-      return value;
-
-    case this.TYPES.DATE:
-      if (value instanceof Date) {
-        if (isNaN(value.getTime())) {
-          throw new Error(`Field '${fieldName}' contains invalid date`);
-        }
-        return value.toISOString();
-      }
-      if (typeof value === 'string') {
-        const date = new Date(value);
-        if (isNaN(date.getTime())) {
-          throw new Error(`Field '${fieldName}' must be a valid date string`);
-        }
-        return value;
-      }
-      throw new Error(`Field '${fieldName}' must be a date or date string`);
-
-    case this.TYPES.EMAIL:
-      if (typeof value !== 'string' || !validator.isEmail(value)) {
-        throw new Error(`Field '${fieldName}' must be a valid email address`);
-      }
-      return validator.normalizeEmail(value);
-
-    case this.TYPES.URL:
-      if (typeof value !== 'string' || !validator.isURL(value, { require_protocol: true })) {
-        throw new Error(`Field '${fieldName}' must be a valid URL with protocol`);
-      }
-      return value;
-
-    case this.TYPES.ARRAY:
-      if (!Array.isArray(value)) {
-        throw new Error(`Field '${fieldName}' must be an array`);
-      }
-      return value;
-
-    case this.TYPES.OBJECT:
-      if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-        throw new Error(`Field '${fieldName}' must be an object`);
-      }
-      return value;
-
-    case this.TYPES.ID: {
-      if (typeof value !== 'string' && typeof value !== 'number') {
-        throw new Error(`Field '${fieldName}' must be a string or number ID`);
-      }
-      // Check for path traversal in ID values
-      const idStrCheck = String(value);
-      if (idStrCheck.includes('../') || idStrCheck.includes('..\\')) {
-        throw new Error(`Field '${fieldName}' contains invalid path traversal patterns`);
-      }
-      // Keep numeric IDs as numbers if they're valid integers
-      if (typeof value === 'number' && Number.isInteger(value)) {
-        return value;
-      }
-      const idStr = String(value);
-      if (!this.PATTERNS.ID.test(idStr)) {
-        throw new Error(`Field '${fieldName}' contains invalid ID format`);
-      }
-      return idStr;
-    }
-
-    default:
-      return value;
+      throw error;
     }
   }
 
   /**
-   * Apply additional validation rules
-   * @param {*} value - Value to validate
-   * @param {Object} schema - Validation schema
-   * @param {string} fieldName - Field name for errors
-   * @returns {*} Validated value
+   * Build a Zod schema from our legacy schema format
+   * @param {Object} schema - Legacy schema definition
+   * @param {string} fieldName - Field name for error messages
+   * @returns {z.ZodType} Zod schema
+   * @private
    */
-  static applyValidationRules(value, schema, fieldName) {
-    // String validations
-    if (typeof value === 'string') {
+  static _buildZodSchema(schema, fieldName) {
+    let zodSchema;
+
+    // Build base type schema
+    switch (schema.type) {
+      case this.TYPES.STRING:
+        zodSchema = z.union([
+          z.string(),
+          z.number().transform(val => String(val)),
+          z.boolean().transform(val => String(val))
+        ], {
+          errorMap: (issue, ctx) => {
+            if (issue.code === 'invalid_union') {
+              return { message: `Field '${fieldName}' must be a string, got ${typeof ctx.data}` };
+            }
+            return { message: issue.message || `Field '${fieldName}' must be a string` };
+          }
+        }).refine((val) => {
+          // Path traversal check
+          if (val.includes('../') || val.includes('..\\')) {
+            return false;
+          }
+          return true;
+        }, { message: `Field '${fieldName}' contains invalid path traversal patterns` });
+        break;
+
+      case this.TYPES.NUMBER:
+        zodSchema = z.union([
+          z.number(),
+          z.string().transform((val, ctx) => {
+            const num = parseFloat(val);
+            if (isNaN(num)) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `Field '${fieldName}' must be a valid number`
+              });
+              return z.NEVER;
+            }
+            return num;
+          })
+        ], {
+          errorMap: (issue, ctx) => {
+            if (issue.code === 'invalid_union') {
+              return { message: `Field '${fieldName}' must be a valid number` };
+            }
+            return { message: issue.message || `Field '${fieldName}' must be a number` };
+          }
+        });
+        break;
+
+      case this.TYPES.INTEGER:
+        zodSchema = z.union([
+          z.number().int(),
+          z.string().transform((val, ctx) => {
+            const num = parseInt(val, 10);
+            if (!Number.isInteger(num)) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `Field '${fieldName}' must be an integer`
+              });
+              return z.NEVER;
+            }
+            return num;
+          })
+        ], {
+          errorMap: (issue, ctx) => {
+            if (issue.code === 'invalid_union') {
+              return { message: `Field '${fieldName}' must be an integer` };
+            }
+            return { message: issue.message || `Field '${fieldName}' must be an integer` };
+          }
+        });
+        break;
+
+      case this.TYPES.BOOLEAN:
+        zodSchema = z.union([
+          z.boolean(),
+          z.string().transform((val, ctx) => {
+            if (val === 'true') return true;
+            if (val === 'false') return false;
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Field '${fieldName}' must be a boolean`
+            });
+            return z.NEVER;
+          })
+        ], {
+          errorMap: (issue, ctx) => {
+            if (issue.code === 'invalid_union') {
+              return { message: `Field '${fieldName}' must be a boolean` };
+            }
+            return { message: issue.message || `Field '${fieldName}' must be a boolean` };
+          }
+        });
+        break;
+
+      case this.TYPES.DATE:
+        zodSchema = z.union([
+          z.date().transform(date => {
+            if (isNaN(date.getTime())) {
+              throw new Error(`Field '${fieldName}' contains invalid date`);
+            }
+            return date.toISOString();
+          }),
+          z.string().refine((val) => {
+            const date = new Date(val);
+            if (isNaN(date.getTime())) {
+              return false;
+            }
+            return true;
+          }, { message: `Field '${fieldName}' must be a valid date string` })
+        ]);
+        break;
+
+      case this.TYPES.EMAIL:
+        zodSchema = z.string()
+          .email({ message: `Field '${fieldName}' must be a valid email address` })
+          .transform(val => validator.normalizeEmail(val) || val);
+        break;
+
+      case this.TYPES.URL:
+        zodSchema = z.string().url({ message: `Field '${fieldName}' must be a valid URL with protocol` })
+          .refine(val => validator.isURL(val, { require_protocol: true }), {
+            message: `Field '${fieldName}' must be a valid URL with protocol`
+          });
+        break;
+
+      case this.TYPES.ARRAY:
+        zodSchema = z.array(z.any(), {
+          invalid_type_error: `Field '${fieldName}' must be an array`,
+          required_error: `Required field '${fieldName}' is missing or null`
+        });
+        break;
+
+      case this.TYPES.OBJECT:
+        zodSchema = z.object({}).passthrough()
+          .refine(val => val !== null && !Array.isArray(val), {
+            message: `Field '${fieldName}' must be an object`
+          });
+        break;
+
+      case this.TYPES.ID:
+        zodSchema = z.union([
+          z.string(),
+          z.number().int()
+        ]).transform((val, ctx) => {
+          const idStrCheck = String(val);
+          if (idStrCheck.includes('../') || idStrCheck.includes('..\\')) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Field '${fieldName}' contains invalid path traversal patterns`
+            });
+            return z.NEVER;
+          }
+          
+          if (typeof val === 'number' && Number.isInteger(val)) {
+            return val;
+          }
+          
+          const idStr = String(val);
+          if (!this.PATTERNS.ID.test(idStr)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Field '${fieldName}' contains invalid ID format`
+            });
+            return z.NEVER;
+          }
+          return idStr;
+        });
+        break;
+
+      default:
+        zodSchema = z.any();
+        break;
+    }
+
+    // Apply additional validation rules
+    zodSchema = this._applyValidationRules(zodSchema, schema, fieldName);
+    
+    return zodSchema;
+  }
+
+  /**
+   * Apply additional validation rules to Zod schema
+   * @param {z.ZodType} zodSchema - Base Zod schema
+   * @param {Object} schema - Legacy schema definition
+   * @param {string} fieldName - Field name for errors
+   * @returns {z.ZodType} Enhanced Zod schema
+   * @private
+   */
+  static _applyValidationRules(zodSchema, schema, fieldName) {
+    // Apply validations using refine since we have union types
+    
+    // String-specific validations
+    if (schema.type === this.TYPES.STRING) {
       // Length validation
-      if (schema.minLength !== undefined && value.length < schema.minLength) {
-        throw new Error(`Field '${fieldName}' must be at least ${schema.minLength} characters`);
+      if (schema.minLength !== undefined) {
+        zodSchema = zodSchema.refine(
+          (val) => val.length >= schema.minLength,
+          `Field '${fieldName}' must be at least ${schema.minLength} characters`
+        );
       }
-      if (schema.maxLength !== undefined && value.length > schema.maxLength) {
-        throw new Error(`Field '${fieldName}' must be at most ${schema.maxLength} characters`);
+      if (schema.maxLength !== undefined) {
+        zodSchema = zodSchema.refine(
+          (val) => val.length <= schema.maxLength,
+          `Field '${fieldName}' must be at most ${schema.maxLength} characters`
+        );
       }
 
       // Pattern validation
@@ -245,66 +337,113 @@ class InputValidator {
         const pattern = typeof schema.pattern === 'string' 
           ? this.PATTERNS[schema.pattern] 
           : schema.pattern;
-        if (!pattern.test(value)) {
-          throw new Error(`Field '${fieldName}' has invalid format`);
+        zodSchema = zodSchema.refine(
+          (val) => pattern.test(val),
+          `Field '${fieldName}' has invalid format`
+        );
+      }
+
+      // Sanitization and trimming
+      zodSchema = zodSchema.transform((val, ctx) => {
+        // Trim whitespace by default
+        if (schema.trim !== false) {
+          val = val.trim();
         }
-      }
 
-      // Sanitization for string values
-      if (schema.sanitize !== false) {
-        value = this.sanitizeString(value, schema.sanitizeOptions);
-      }
-
-      // Trim whitespace by default
-      if (schema.trim !== false) {
-        value = value.trim();
-      }
+        // Sanitization for string values
+        if (schema.sanitize !== false) {
+          try {
+            val = this.sanitizeString(val, schema.sanitizeOptions);
+          } catch (error) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: error.message
+            });
+            return z.NEVER;
+          }
+        }
+        return val;
+      });
     }
 
     // Number validations
-    if (typeof value === 'number') {
-      if (schema.min !== undefined && value < schema.min) {
-        throw new Error(`Field '${fieldName}' must be at least ${schema.min}`);
+    if (schema.type === this.TYPES.NUMBER || schema.type === this.TYPES.INTEGER) {
+      if (schema.min !== undefined) {
+        zodSchema = zodSchema.refine(
+          (val) => val >= schema.min,
+          `Field '${fieldName}' must be at least ${schema.min}`
+        );
       }
-      if (schema.max !== undefined && value > schema.max) {
-        throw new Error(`Field '${fieldName}' must be at most ${schema.max}`);
+      if (schema.max !== undefined) {
+        zodSchema = zodSchema.refine(
+          (val) => val <= schema.max,
+          `Field '${fieldName}' must be at most ${schema.max}`
+        );
       }
-      if (schema.positive && value <= 0) {
-        throw new Error(`Field '${fieldName}' must be positive`);
-      }
-    }
-
-    // Array validations
-    if (Array.isArray(value)) {
-      if (schema.minItems !== undefined && value.length < schema.minItems) {
-        throw new Error(`Field '${fieldName}' must have at least ${schema.minItems} items`);
-      }
-      if (schema.maxItems !== undefined && value.length > schema.maxItems) {
-        throw new Error(`Field '${fieldName}' must have at most ${schema.maxItems} items`);
-      }
-      
-      // Validate array items
-      if (schema.items) {
-        value = value.map((item, index) => 
-          this.validateValue(item, schema.items, `${fieldName}[${index}]`)
+      if (schema.positive) {
+        zodSchema = zodSchema.refine(
+          (val) => val > 0,
+          `Field '${fieldName}' must be positive`
         );
       }
     }
 
+    // Array validations
+    if (schema.type === this.TYPES.ARRAY) {
+      if (schema.minItems !== undefined) {
+        zodSchema = zodSchema.refine(
+          (val) => val.length >= schema.minItems,
+          `Field '${fieldName}' must have at least ${schema.minItems} items`
+        );
+      }
+      if (schema.maxItems !== undefined) {
+        zodSchema = zodSchema.refine(
+          (val) => val.length <= schema.maxItems,
+          `Field '${fieldName}' must have at most ${schema.maxItems} items`
+        );
+      }
+      
+      // Validate array items
+      if (schema.items) {
+        zodSchema = zodSchema.transform((arr, ctx) => {
+          return arr.map((item, index) => {
+            try {
+              return this.validateValue(item, schema.items, `${fieldName}[${index}]`);
+            } catch (error) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: error.message,
+                path: [index]
+              });
+              return item;
+            }
+          });
+        });
+      }
+    }
+
     // Enum validation
-    if (schema.enum && !schema.enum.includes(value)) {
-      throw new Error(`Field '${fieldName}' must be one of: ${schema.enum.join(', ')}`);
+    if (schema.enum) {
+      zodSchema = zodSchema.refine(
+        (value) => schema.enum.includes(value),
+        `Field '${fieldName}' must be one of: ${schema.enum.join(', ')}`
+      );
     }
 
     // Custom validation function
     if (schema.validate) {
-      const result = schema.validate(value, fieldName);
-      if (result !== true) {
-        throw new Error(result || `Field '${fieldName}' failed custom validation`);
-      }
+      zodSchema = zodSchema.refine(
+        (value) => {
+          const result = schema.validate(value, fieldName);
+          return result === true;
+        },
+        (value) => ({
+          message: schema.validate(value, fieldName) || `Field '${fieldName}' failed custom validation`
+        })
+      );
     }
 
-    return value;
+    return zodSchema;
   }
 
   /**
@@ -319,11 +458,11 @@ class InputValidator {
       throw new Error('Input contains path traversal patterns');
     }
     
-    // Basic XSS protection
-    let sanitized = xss(value, {
-      whiteList: {},  // No HTML tags allowed by default
-      stripIgnoreTag: true,
-      stripIgnoreTagBody: ['script', 'style'],
+    // Enhanced XSS protection with DOMPurify
+    let sanitized = DOMPurify.sanitize(value, {
+      ALLOWED_TAGS: [], // No HTML tags allowed by default
+      ALLOWED_ATTR: [],
+      KEEP_CONTENT: true, // Keep text content, remove tags
       ...options
     });
 
@@ -365,7 +504,9 @@ class InputValidator {
 
     // Validate defined schema fields from clean payload
     for (const [field, fieldSchema] of Object.entries(schema)) {
-      validated[field] = this.validateValue(cleanPayload[field], fieldSchema, field);
+      if (!field.startsWith('_')) { // Skip schema configuration fields
+        validated[field] = this.validateValue(cleanPayload[field], fieldSchema, field);
+      }
     }
 
     // Check for unexpected fields (strict mode) using clean payload
@@ -401,6 +542,108 @@ class InputValidator {
         throw new Error(`Validation failed for operation '${operation}': ${error.message}`);
       }
     };
+  }
+
+  /**
+   * Format Zod error to match legacy error format
+   * @param {Object} issue - Zod validation issue
+   * @param {string} fieldName - Field name being validated
+   * @returns {string} Formatted error message
+   * @private
+   */
+  static _formatZodError(issue, fieldName, schema = null) {
+    // Map Zod error codes to our expected messages
+    switch (issue.code) {
+      case 'invalid_type':
+        if (issue.expected === 'string') {
+          return `Field '${fieldName}' must be a string, got ${issue.received}`;
+        }
+        if (issue.expected === 'number') {
+          return `Field '${fieldName}' must be a number`;
+        }
+        if (issue.expected === 'boolean') {
+          return `Field '${fieldName}' must be a boolean`;
+        }
+        if (issue.expected === 'array') {
+          return `Field '${fieldName}' must be an array`;
+        }
+        if (issue.expected === 'object') {
+          return `Field '${fieldName}' must be an object`;
+        }
+        return issue.message;
+      case 'invalid_union':
+        // Check if this union has a custom error message from errorMap
+        if (issue.message && !issue.message.startsWith('Invalid input')) {
+          return issue.message;
+        }
+        
+        // Handle union type errors more specifically
+        if (issue.errors && issue.errors[0] && issue.errors[0][0]) {
+          const firstError = issue.errors[0][0];
+          if (firstError.code === 'invalid_type') {
+            const expectedType = firstError.expected;
+            const receivedType = firstError.message.includes('received object') ? 'object' :
+                               firstError.message.includes('received array') ? 'array' :
+                               firstError.message.includes('received null') ? 'null' :
+                               firstError.message.includes('received undefined') ? 'undefined' :
+                               'unknown';
+            
+            if (expectedType === 'string') {
+              return `Field '${fieldName}' must be a string, got ${receivedType}`;
+            }
+            if (expectedType === 'int') {
+              return `Field '${fieldName}' must be an integer`;
+            }
+            if (expectedType === 'number') {
+              return `Field '${fieldName}' must be a number`;
+            }
+            if (expectedType === 'boolean') {
+              return `Field '${fieldName}' must be a boolean`;
+            }
+            if (expectedType === 'array') {
+              return `Field '${fieldName}' must be an array`;
+            }
+            return `Field '${fieldName}' must be ${expectedType}, got ${receivedType}`;
+          }
+        }
+        return `Field '${fieldName}' has invalid type`;
+      case 'too_small':
+        if (issue.type === 'string') {
+          return `Field '${fieldName}' must be at least ${issue.minimum} characters`;
+        }
+        if (issue.type === 'array') {
+          return `Field '${fieldName}' must have at least ${issue.minimum} items`;
+        }
+        return `Field '${fieldName}' must be at least ${issue.minimum}`;
+      case 'too_big':
+        if (issue.type === 'string') {
+          return `Field '${fieldName}' must be at most ${issue.maximum} characters`;
+        }
+        if (issue.type === 'array') {
+          return `Field '${fieldName}' must have at most ${issue.maximum} items`;
+        }
+        return `Field '${fieldName}' must be at most ${issue.maximum}`;
+      case 'invalid_string':
+        if (issue.validation === 'email') {
+          return `Field '${fieldName}' must be a valid email address`;
+        }
+        if (issue.validation === 'url') {
+          return `Field '${fieldName}' must be a valid URL with protocol`;
+        }
+        if (issue.validation === 'regex') {
+          return `Field '${fieldName}' has invalid format`;
+        }
+        return issue.message;
+      case 'custom':
+        // Return custom error messages as-is
+        return issue.message;
+      default:
+        // Check if the message already contains the expected format
+        if (issue.message && !issue.message.startsWith('Invalid input')) {
+          return issue.message;
+        }
+        return `Field '${fieldName}' validation failed: ${issue.message}`;
+    }
   }
 
   /**

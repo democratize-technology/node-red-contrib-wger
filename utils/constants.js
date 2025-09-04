@@ -16,14 +16,11 @@
  * @property {number} CONNECTION_TIMEOUT - Default connection timeout in milliseconds
  */
 const API = {
-  // Base API paths
   BASE_PATH: '/api/v2',
   
-  // Common endpoints
   ENDPOINTS: {
     INFO: '/api/v2/info/',
     
-    // Exercise endpoints
     EXERCISES: '/api/v2/exercisebaseinfo/',
     EXERCISE_BY_ID: '/api/v2/exercisebaseinfo/{id}/',
     EXERCISE_SEARCH: '/api/v2/exercise/search/',
@@ -33,7 +30,6 @@ const API = {
     MUSCLES: '/api/v2/muscle/',
     EQUIPMENT: '/api/v2/equipment/',
     
-    // Workout endpoints
     WORKOUTS: '/api/v2/workout/',
     WORKOUT_BY_ID: '/api/v2/workout/{id}/',
     WORKOUT_CANONICAL: '/api/v2/workout/{id}/canonical_representation/',
@@ -45,7 +41,6 @@ const API = {
     WORKOUT_SESSIONS: '/api/v2/workoutsession/',
     WORKOUT_SESSION_BY_ID: '/api/v2/workoutsession/{id}/',
     
-    // Nutrition endpoints
     NUTRITION_PLANS: '/api/v2/nutritionplan/',
     NUTRITION_PLAN_BY_ID: '/api/v2/nutritionplan/{id}/',
     NUTRITION_PLAN_INFO: '/api/v2/nutritionplaninfo/{id}/',
@@ -57,11 +52,9 @@ const API = {
     INGREDIENT_SEARCH: '/api/v2/ingredient/search/',
     INGREDIENT_INFO: '/api/v2/ingredientinfo/{id}/',
     
-    // Weight endpoints
     WEIGHT_ENTRIES: '/api/v2/weightentry/',
     WEIGHT_ENTRY_BY_ID: '/api/v2/weightentry/{id}/',
     
-    // User endpoints
     USER_PROFILE: '/api/v2/userprofile/',
     USER_PROFILE_BY_ID: '/api/v2/userprofile/{id}/',
     USER_SETTINGS: '/api/v2/setting/',
@@ -72,12 +65,10 @@ const API = {
     MEASUREMENTS: '/api/v2/measurement/'
   },
   
-  // HTTP configuration
   HEADERS: {
     CONTENT_TYPE: 'application/json'
   },
   
-  // Timeouts and limits
   CONNECTION_TIMEOUT: 5000
 };
 
@@ -125,7 +116,6 @@ const AUTH = {
  * @property {Object} MESSAGES - Standard status text messages
  */
 const STATUS = {
-  // Status colors
   COLORS: {
     BLUE: 'blue',
     GREEN: 'green',
@@ -133,13 +123,11 @@ const STATUS = {
     YELLOW: 'yellow'
   },
   
-  // Status shapes
   SHAPES: {
     DOT: 'dot',
     RING: 'ring'
   },
   
-  // Standard status messages
   MESSAGES: {
     REQUESTING: 'requesting...',
     SUCCESS: 'success',
@@ -162,16 +150,12 @@ const STATUS = {
  * @property {Array<string>} TEST_MODE_PATTERNS - URL patterns that trigger test mode
  */
 const DEFAULTS = {
-  // Default wger API URL
   API_URL: 'https://wger.de',
   
-  // Default authentication type
   AUTH_TYPE: 'none',
   
-  // Default language
   LANGUAGE: 'en',
   
-  // Test mode detection patterns
   TEST_MODE_PATTERNS: ['localhost', 'test']
 };
 
@@ -187,15 +171,12 @@ const DEFAULTS = {
  * @property {Object} FIELD_NAMES - Standard field names used in error messages
  */
 const ERRORS = {
-  // Generic error messages
   MISSING_OPERATION: 'No operation specified',
   INVALID_OPERATION: 'Invalid operation: {operation}',
   MISSING_CONFIG: 'Missing server config',
   
-  // Validation error message patterns
   REQUIRED_FIELD: '{field} is required',
   
-  // Common required field names for validation messages
   FIELD_NAMES: {
     ENTRY_ID: 'entryId',
     WORKOUT_ID: 'workoutId',
@@ -253,7 +234,6 @@ const HTTP_METHODS = {
  * @property {Object} CREDENTIAL_TYPES - Credential field type definitions
  */
 const NODE_RED = {
-  // Node types
   NODE_TYPES: {
     CONFIG: 'wger-config',
     EXERCISE: 'wger-exercise',
@@ -264,12 +244,10 @@ const NODE_RED = {
     API: 'wger-api'
   },
   
-  // Admin routes
   ADMIN_ROUTES: {
     TEST_CONNECTION: '/wger-config/:id/test'
   },
   
-  // Credential types
   CREDENTIAL_TYPES: {
     PASSWORD: 'password',
     TEXT: 'text'

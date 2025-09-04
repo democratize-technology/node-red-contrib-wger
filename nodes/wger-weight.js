@@ -9,12 +9,10 @@ module.exports = function (RED) {
   function WgerWeightNode(config) {
     const node = this;
 
-    // Operation handler specific to weight operations
     const handleWeightOperation = async (client, operation, payload) => {
       let result;
       let validatedPayload = payload;
 
-      // Validate input based on operation
       const schema = validationSchemas.weight[operation];
       if (schema) {
         try {
@@ -24,7 +22,6 @@ module.exports = function (RED) {
         }
       }
 
-      // Execute the Wger weight operation
       switch (operation) {
           case 'listWeightEntries':
             result = await client.get(API.ENDPOINTS.WEIGHT_ENTRIES, {
@@ -52,8 +49,7 @@ module.exports = function (RED) {
               const cacheCreate = getSharedCache();
               cacheCreate.invalidate(config.server || 'default');
             } catch (cacheError) {
-              // Log but don't fail if cache invalidation fails
-              console.error('Cache invalidation failed:', cacheError);
+              // Cache invalidation failed - continue silently
             }
             break;
 
@@ -69,7 +65,7 @@ module.exports = function (RED) {
               const cacheUpdate = getSharedCache();
               cacheUpdate.invalidate(config.server || 'default');
             } catch (cacheError) {
-              console.error('Cache invalidation failed:', cacheError);
+              // Cache invalidation failed - continue silently
             }
             break;
 
@@ -82,16 +78,14 @@ module.exports = function (RED) {
               const cacheDelete = getSharedCache();
               cacheDelete.invalidate(config.server || 'default');
             } catch (cacheError) {
-              console.error('Cache invalidation failed:', cacheError);
+              // Cache invalidation failed - continue silently
             }
             break;
 
           case 'getWeightStats':
-            // Use cache for performance optimization
             const cache = getSharedCache();
             const userId = config.server || 'default';
             
-            // Define fetch function for cache
             const fetchData = async (startDate, endDate, options) => {
               // Optimize: Only fetch minimal required fields
               const params = {
@@ -111,7 +105,6 @@ module.exports = function (RED) {
               return await client.get(API.ENDPOINTS.WEIGHT_ENTRIES, params);
             };
             
-            // Define calculation function
             const calculateStats = (data) => {
               if (!data.results || data.results.length === 0) {
                 return {
@@ -183,7 +176,6 @@ module.exports = function (RED) {
         return result;
     };
 
-    // Setup node using base handler
     BaseNodeHandler.setupNode(RED, node, config, handleWeightOperation);
   }
 

@@ -68,7 +68,6 @@ class BaseNodeHandler {
    * });
    */
   static async handleNodeOperation(node, msg, send, done, operationHandler) {
-    // Set initial node status
     node.status({ fill: STATUS.COLORS.BLUE, shape: STATUS.SHAPES.DOT, text: STATUS.MESSAGES.REQUESTING });
 
     const operation = msg.operation || node.operation;
@@ -144,7 +143,6 @@ class BaseNodeHandler {
   static setupNode(RED, node, config, operationHandler) {
     RED.nodes.createNode(node, config);
 
-    // Get configuration node
     node.server = RED.nodes.getNode(config.server);
     node.operation = config.operation;
 
@@ -153,12 +151,10 @@ class BaseNodeHandler {
       return;
     }
 
-    // Set up input handler
     node.on('input', async function (msg, send, done) {
       await BaseNodeHandler.handleNodeOperation(node, msg, send, done, operationHandler);
     });
 
-    // Set up close handler
     node.on('close', function () {
       node.status({});
     });

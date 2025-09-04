@@ -1,91 +1,72 @@
-const WgerApiClient = require('../utils/api-client');
+const BaseNodeHandler = require('../utils/base-node-handler');
+const { API, ERRORS } = require('../utils/constants');
+const InputValidator = require('../utils/input-validator');
+const validationSchemas = require('../utils/validation-schemas');
 
 module.exports = function (RED) {
   function WgerUserNode(config) {
-    RED.nodes.createNode(this, config);
     const node = this;
 
-    // Get configuration node
-    this.server = RED.nodes.getNode(config.server);
-    this.operation = config.operation;
+    // Operation handler specific to user operations
+    const handleUserOperation = async (client, operation, payload) => {
+      let result;
+      let validatedPayload = payload;
 
-    if (!this.server) {
-      node.status({ fill: 'red', shape: 'ring', text: 'Missing server config' });
-      return;
-    }
-
-    node.on('input', async function (msg, send, done) {
-      // Set initial node status
-      node.status({ fill: 'blue', shape: 'dot', text: 'requesting...' });
-
-      const operation = msg.operation || node.operation;
-      const payload = msg.payload || {};
-
-      if (!operation) {
-        node.status({ fill: 'red', shape: 'ring', text: 'no operation specified' });
-        const error = new Error('No operation specified');
-        if (done) {
-          done(error);
-        } else {
-          node.error(error, msg);
+      // Validate input based on operation
+      const schema = validationSchemas.user[operation];
+      if (schema) {
+        try {
+          validatedPayload = InputValidator.validatePayload(payload, schema);
+        } catch (validationError) {
+          throw new Error(`Validation failed for ${operation}: ${validationError.message}`);
         }
-        return;
       }
 
-      try {
-        // Initialize Wger client
-        const client = new WgerApiClient(node.server.apiUrl, node.server.getAuthHeader());
-        let result;
-
-        // Execute the Wger user operation
-        switch (operation) {
+      // Execute the Wger user operation
+      switch (operation) {
           case 'getUserProfile':
-            result = await client.get('/api/v2/userprofile/');
+            result = await client.get(API.ENDPOINTS.USER_PROFILE);
             break;
 
           case 'updateUserProfile':
-            if (!payload.profileId) {
-              throw new Error('profileId is required');
-            }
-            const updateData = { ...payload };
+            const updateData = { ...validatedPayload };
             delete updateData.profileId;
-            result = await client.patch(`/api/v2/userprofile/${payload.profileId}/`, updateData);
+            result = await client.patch(
+              API.ENDPOINTS.USER_PROFILE_BY_ID.replace('{id}', validatedPayload.profileId || 'current'), 
+              updateData
+            );
             break;
 
           case 'getUserSettings':
-            result = await client.get('/api/v2/setting/');
+            result = await client.get(API.ENDPOINTS.USER_SETTINGS);
             break;
 
           case 'updateUserSettings':
-            if (!payload.settingId) {
-              throw new Error('settingId is required');
-            }
+            BaseNodeHandler.validateRequired(payload, 'settingId');
             const settingsData = { ...payload };
             delete settingsData.settingId;
-            result = await client.patch(`/api/v2/setting/${payload.settingId}/`, settingsData);
+            result = await client.patch(API.ENDPOINTS.USER_SETTING_BY_ID.replace('{id}', payload.settingId), settingsData);
             break;
 
           case 'getUserInfo':
-            result = await client.get('/api/v2/userinfo/');
+            result = await client.get(API.ENDPOINTS.USER_INFO);
             break;
 
           case 'getApiKey':
-            result = await client.get('/api/v2/apikey/');
+            result = await client.get(API.ENDPOINTS.API_KEYS);
             break;
 
           case 'createApiKey':
-            result = await client.post('/api/v2/apikey/');
+            result = await client.post(API.ENDPOINTS.API_KEYS);
             break;
 
           case 'getMeasurements':
-            result = await client.get('/api/v2/measurement-category/');
+            result = await client.get(API.ENDPOINTS.MEASUREMENT_CATEGORIES);
             break;
 
           case 'createMeasurement':
-            if (!payload.category || !payload.value || !payload.date) {
-              throw new Error('category, value, and date are required');
-            }
-            result = await client.post('/api/v2/measurement/', {
+            BaseNodeHandler.validateRequired(payload, ['category', 'value', 'date']);
+            result = await client.post(API.ENDPOINTS.MEASUREMENTS, {
               category: payload.category,
               value: payload.value,
               date: payload.date,
@@ -94,7 +75,7 @@ module.exports = function (RED) {
             break;
 
           case 'getMeasurementEntries':
-            result = await client.get('/api/v2/measurement/', {
+            result = await client.get(API.ENDPOINTS.MEASUREMENTS, {
               category: payload.category,
               date__gte: payload.startDate,
               date__lte: payload.endDate,
@@ -102,37 +83,14 @@ module.exports = function (RED) {
             break;
 
           default:
-            node.status({ fill: 'red', shape: 'ring', text: 'invalid operation' });
-            const error = new Error(`Invalid operation: ${operation}`);
-            if (done) {
-              done(error);
-            } else {
-              node.error(error, msg);
-            }
-            return;
+            BaseNodeHandler.throwInvalidOperationError(operation);
         }
 
-        // Update status and send response
-        node.status({ fill: 'green', shape: 'dot', text: 'success' });
-        msg.payload = result;
-        send(msg);
+        return result;
+    };
 
-        if (done) {
-          done();
-        }
-      } catch (error) {
-        node.status({ fill: 'red', shape: 'dot', text: error.message });
-        if (done) {
-          done(error);
-        } else {
-          node.error(error, msg);
-        }
-      }
-    });
-
-    node.on('close', function () {
-      node.status({});
-    });
+    // Setup node using base handler
+    BaseNodeHandler.setupNode(RED, node, config, handleUserOperation);
   }
 
   RED.nodes.registerType('wger-user', WgerUserNode);

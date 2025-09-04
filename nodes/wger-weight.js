@@ -1,156 +1,190 @@
-const WgerApiClient = require('../utils/api-client');
+const BaseNodeHandler = require('../utils/base-node-handler');
+const { API, ERRORS } = require('../utils/constants');
+const InputValidator = require('../utils/input-validator');
+const validationSchemas = require('../utils/validation-schemas');
+const WeightStatsCalculator = require('../utils/weight-stats-calculator');
+const { getSharedCache } = require('../utils/weight-stats-cache');
 
 module.exports = function (RED) {
   function WgerWeightNode(config) {
-    RED.nodes.createNode(this, config);
     const node = this;
 
-    // Get configuration node
-    this.server = RED.nodes.getNode(config.server);
-    this.operation = config.operation;
+    // Operation handler specific to weight operations
+    const handleWeightOperation = async (client, operation, payload) => {
+      let result;
+      let validatedPayload = payload;
 
-    if (!this.server) {
-      node.status({ fill: 'red', shape: 'ring', text: 'Missing server config' });
-      return;
-    }
-
-    node.on('input', async function (msg, send, done) {
-      // Set initial node status
-      node.status({ fill: 'blue', shape: 'dot', text: 'requesting...' });
-
-      const operation = msg.operation || node.operation;
-      const payload = msg.payload || {};
-
-      if (!operation) {
-        node.status({ fill: 'red', shape: 'ring', text: 'no operation specified' });
-        const error = new Error('No operation specified');
-        if (done) {
-          done(error);
-        } else {
-          node.error(error, msg);
+      // Validate input based on operation
+      const schema = validationSchemas.weight[operation];
+      if (schema) {
+        try {
+          validatedPayload = InputValidator.validatePayload(payload, schema);
+        } catch (validationError) {
+          throw new Error(`Validation failed for ${operation}: ${validationError.message}`);
         }
-        return;
       }
 
-      try {
-        // Initialize Wger client
-        const client = new WgerApiClient(node.server.apiUrl, node.server.getAuthHeader());
-        let result;
-
-        // Execute the Wger weight operation
-        switch (operation) {
+      // Execute the Wger weight operation
+      switch (operation) {
           case 'listWeightEntries':
-            result = await client.get('/api/v2/weightentry/', {
-              date__gte: payload.startDate,
-              date__lte: payload.endDate,
-              limit: payload.limit,
-              offset: payload.offset,
+            result = await client.get(API.ENDPOINTS.WEIGHT_ENTRIES, {
+              date__gte: validatedPayload.startDate,
+              date__lte: validatedPayload.endDate,
+              limit: validatedPayload.limit,
+              offset: validatedPayload.offset,
             });
             break;
 
           case 'getWeightEntry':
-            if (!payload.entryId) {
-              throw new Error('entryId is required');
-            }
-            result = await client.get(`/api/v2/weightentry/${payload.entryId}/`);
+            result = await client.get(
+              API.ENDPOINTS.WEIGHT_ENTRY_BY_ID.replace('{id}', validatedPayload.entryId)
+            );
             break;
 
           case 'createWeightEntry':
-            if (!payload.weight || !payload.date) {
-              throw new Error('weight and date are required');
-            }
-            result = await client.post('/api/v2/weightentry/', {
-              weight: payload.weight,
-              date: payload.date,
-              comment: payload.comment,
+            result = await client.post(API.ENDPOINTS.WEIGHT_ENTRIES, {
+              weight: validatedPayload.weight,
+              date: validatedPayload.date,
+              comment: validatedPayload.comment,
             });
+            // Invalidate cache after creating new entry
+            try {
+              const cacheCreate = getSharedCache();
+              cacheCreate.invalidate(config.server || 'default');
+            } catch (cacheError) {
+              // Log but don't fail if cache invalidation fails
+              console.error('Cache invalidation failed:', cacheError);
+            }
             break;
 
           case 'updateWeightEntry':
-            if (!payload.entryId) {
-              throw new Error('entryId is required');
-            }
-            const updateData = { ...payload };
+            const updateData = { ...validatedPayload };
             delete updateData.entryId;
-            result = await client.patch(`/api/v2/weightentry/${payload.entryId}/`, updateData);
+            result = await client.patch(
+              API.ENDPOINTS.WEIGHT_ENTRY_BY_ID.replace('{id}', validatedPayload.entryId), 
+              updateData
+            );
+            // Invalidate cache after updating entry
+            try {
+              const cacheUpdate = getSharedCache();
+              cacheUpdate.invalidate(config.server || 'default');
+            } catch (cacheError) {
+              console.error('Cache invalidation failed:', cacheError);
+            }
             break;
 
           case 'deleteWeightEntry':
-            if (!payload.entryId) {
-              throw new Error('entryId is required');
+            result = await client.delete(
+              API.ENDPOINTS.WEIGHT_ENTRY_BY_ID.replace('{id}', validatedPayload.entryId)
+            );
+            // Invalidate cache after deleting entry
+            try {
+              const cacheDelete = getSharedCache();
+              cacheDelete.invalidate(config.server || 'default');
+            } catch (cacheError) {
+              console.error('Cache invalidation failed:', cacheError);
             }
-            result = await client.delete(`/api/v2/weightentry/${payload.entryId}/`);
             break;
 
           case 'getWeightStats':
-            // Get weight entries for statistics
-            const entries = await client.get('/api/v2/weightentry/', {
-              date__gte: payload.startDate,
-              date__lte: payload.endDate,
-              ordering: '-date',
-            });
-
-            if (entries.results && entries.results.length > 0) {
-              const weights = entries.results.map((entry) => entry.weight);
-              const min = Math.min(...weights);
-              const max = Math.max(...weights);
-              const avg = weights.reduce((a, b) => a + b, 0) / weights.length;
-              const latest = entries.results[0].weight;
-              const oldest = entries.results[entries.results.length - 1].weight;
-              const change = latest - oldest;
-
-              result = {
-                stats: {
-                  min,
-                  max,
-                  avg,
-                  latest,
-                  oldest,
-                  change,
-                  count: entries.results.length,
-                },
-                entries: entries.results,
+            // Use cache for performance optimization
+            const cache = getSharedCache();
+            const userId = config.server || 'default';
+            
+            // Define fetch function for cache
+            const fetchData = async (startDate, endDate, options) => {
+              // Optimize: Only fetch minimal required fields
+              const params = {
+                date__gte: startDate,
+                date__lte: endDate,
+                ordering: '-date'
               };
-            } else {
-              result = {
-                stats: null,
-                entries: [],
+              
+              // Performance optimization: Limit initial fetch for large datasets
+              if (validatedPayload.limit) {
+                params.limit = validatedPayload.limit;
+              } else if (!validatedPayload.includeAllEntries) {
+                // Default to reasonable limit for statistics calculation
+                params.limit = 1000; // Enough for accurate statistics
+              }
+              
+              return await client.get(API.ENDPOINTS.WEIGHT_ENTRIES, params);
+            };
+            
+            // Define calculation function
+            const calculateStats = (data) => {
+              if (!data.results || data.results.length === 0) {
+                return {
+                  stats: null,
+                  entries: [],
+                  cached: false,
+                  performance: {
+                    entryCount: 0,
+                    fromCache: false
+                  }
+                };
+              }
+              
+              // Determine calculation options
+              const calcOptions = {
+                includeAdvanced: validatedPayload.includeAdvanced || false,
+                includeWeekly: validatedPayload.includeWeekly || false,
+                includeMonthly: validatedPayload.includeMonthly || false
               };
+              
+              // Use optimized calculator
+              const stats = WeightStatsCalculator.calculate(data.results, calcOptions);
+              
+              return {
+                stats,
+                entries: validatedPayload.includeEntries !== false ? data.results : [],
+                performance: {
+                  entryCount: data.results.length,
+                  fromCache: false
+                }
+              };
+            };
+            
+            try {
+              // Try to get from cache or calculate
+              result = await cache.getOrCalculate(
+                fetchData,
+                calculateStats,
+                userId,
+                validatedPayload.startDate || '',
+                validatedPayload.endDate || '',
+                { 
+                  includeAdvanced: validatedPayload.includeAdvanced,
+                  includeWeekly: validatedPayload.includeWeekly,
+                  includeMonthly: validatedPayload.includeMonthly
+                }
+              );
+              
+              // Add cache metrics
+              if (result && result.performance) {
+                result.performance.cacheMetrics = cache.getMetrics();
+              }
+            } catch (error) {
+              // Fallback to non-cached calculation on error
+              const entries = await client.get(API.ENDPOINTS.WEIGHT_ENTRIES, {
+                date__gte: validatedPayload.startDate,
+                date__lte: validatedPayload.endDate,
+                ordering: '-date',
+              });
+              
+              result = calculateStats(entries);
             }
             break;
 
           default:
-            node.status({ fill: 'red', shape: 'ring', text: 'invalid operation' });
-            const error = new Error(`Invalid operation: ${operation}`);
-            if (done) {
-              done(error);
-            } else {
-              node.error(error, msg);
-            }
-            return;
+            BaseNodeHandler.throwInvalidOperationError(operation);
         }
 
-        // Update status and send response
-        node.status({ fill: 'green', shape: 'dot', text: 'success' });
-        msg.payload = result;
-        send(msg);
+        return result;
+    };
 
-        if (done) {
-          done();
-        }
-      } catch (error) {
-        node.status({ fill: 'red', shape: 'dot', text: error.message });
-        if (done) {
-          done(error);
-        } else {
-          node.error(error, msg);
-        }
-      }
-    });
-
-    node.on('close', function () {
-      node.status({});
-    });
+    // Setup node using base handler
+    BaseNodeHandler.setupNode(RED, node, config, handleWeightOperation);
   }
 
   RED.nodes.registerType('wger-weight', WgerWeightNode);

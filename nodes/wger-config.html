@@ -4,7 +4,16 @@
     defaults: {
       name: { value: "" },
       apiUrl: { value: "https://wger.de", required: true },
-      authType: { value: "none", required: true }
+      authType: { value: "none", required: true },
+      // Retry configuration
+      enableRetry: { value: false },
+      retryMaxAttempts: { value: 3, validate: RED.validators.number() },
+      retryBaseDelayMs: { value: 1000, validate: RED.validators.number() },
+      retryMaxDelayMs: { value: 30000, validate: RED.validators.number() },
+      // Circuit breaker configuration
+      enableCircuitBreaker: { value: false },
+      circuitBreakerFailureThreshold: { value: 5, validate: RED.validators.number() },
+      circuitBreakerResetTimeoutMs: { value: 60000, validate: RED.validators.number() }
     },
     credentials: {
       token: { type: "password" },
@@ -32,8 +41,43 @@
         }
       });
 
+      // Retry configuration toggle handler
+      $("#node-config-input-enableRetry").on('change', function () {
+        if ($(this).is(':checked')) {
+          $("#node-config-retry-options").show();
+        } else {
+          $("#node-config-retry-options").hide();
+        }
+      });
+
+      // Circuit breaker configuration toggle handler
+      $("#node-config-input-enableCircuitBreaker").on('change', function () {
+        if ($(this).is(':checked')) {
+          $("#node-config-circuit-breaker-options").show();
+        } else {
+          $("#node-config-circuit-breaker-options").hide();
+        }
+      });
+
+      // Collapsible sections handler
+      $(".node-config-section-header").on('click', function () {
+        const $header = $(this);
+        const $content = $header.next('.node-config-section-content');
+        const $icon = $header.find('.fa');
+        
+        if ($content.is(':visible')) {
+          $content.slideUp();
+          $icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+        } else {
+          $content.slideDown();
+          $icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
+        }
+      });
+
       // Trigger initial state
       $("#node-config-input-authType").trigger('change');
+      $("#node-config-input-enableRetry").trigger('change');
+      $("#node-config-input-enableCircuitBreaker").trigger('change');
 
       // API URL validation
       $("#node-config-input-apiUrl").on('change', function () {
@@ -122,7 +166,64 @@
         <label for="node-config-input-password"><i class="fa fa-key"></i> Password</label>
         <input type="password" id="node-config-input-password">
     </div>
-    <div class="form-row">
+
+    <!-- Resilience Configuration Section -->
+    <div class="form-row node-config-section-header" style="margin-top: 20px; padding: 8px 0; border-top: 1px solid #ccc; cursor: pointer;">
+        <i class="fa fa-chevron-right" style="margin-right: 8px;"></i>
+        <span style="font-weight: bold;">Resilience Configuration</span>
+    </div>
+    <div class="node-config-section-content" style="display: none; padding-left: 20px;">
+        <!-- Retry Configuration -->
+        <div class="form-row">
+            <label for="node-config-input-enableRetry">
+                <input type="checkbox" id="node-config-input-enableRetry" style="width: auto; margin-right: 8px;">
+                <i class="fa fa-repeat"></i> Enable Retry Policy
+            </label>
+            <div class="form-tips">Automatically retry failed requests with exponential backoff</div>
+        </div>
+        
+        <div id="node-config-retry-options" style="display: none; margin-left: 20px;">
+            <div class="form-row">
+                <label for="node-config-input-retryMaxAttempts">Max Attempts</label>
+                <input type="number" id="node-config-input-retryMaxAttempts" min="1" max="10" style="width: 100px;">
+                <span class="form-tips" style="margin-left: 8px;">Maximum retry attempts (1-10)</span>
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-retryBaseDelayMs">Base Delay (ms)</label>
+                <input type="number" id="node-config-input-retryBaseDelayMs" min="100" max="10000" step="100" style="width: 120px;">
+                <span class="form-tips" style="margin-left: 8px;">Initial delay between retries</span>
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-retryMaxDelayMs">Max Delay (ms)</label>
+                <input type="number" id="node-config-input-retryMaxDelayMs" min="1000" max="300000" step="1000" style="width: 120px;">
+                <span class="form-tips" style="margin-left: 8px;">Maximum delay between retries</span>
+            </div>
+        </div>
+
+        <!-- Circuit Breaker Configuration -->
+        <div class="form-row" style="margin-top: 15px;">
+            <label for="node-config-input-enableCircuitBreaker">
+                <input type="checkbox" id="node-config-input-enableCircuitBreaker" style="width: auto; margin-right: 8px;">
+                <i class="fa fa-shield"></i> Enable Circuit Breaker
+            </label>
+            <div class="form-tips">Prevent cascading failures by temporarily blocking requests after repeated failures</div>
+        </div>
+        
+        <div id="node-config-circuit-breaker-options" style="display: none; margin-left: 20px;">
+            <div class="form-row">
+                <label for="node-config-input-circuitBreakerFailureThreshold">Failure Threshold</label>
+                <input type="number" id="node-config-input-circuitBreakerFailureThreshold" min="1" max="50" style="width: 100px;">
+                <span class="form-tips" style="margin-left: 8px;">Consecutive failures before opening circuit</span>
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-circuitBreakerResetTimeoutMs">Reset Timeout (ms)</label>
+                <input type="number" id="node-config-input-circuitBreakerResetTimeoutMs" min="5000" max="600000" step="5000" style="width: 120px;">
+                <span class="form-tips" style="margin-left: 8px;">Wait time before attempting to close circuit</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-row" style="margin-top: 20px;">
         <button type="button" id="node-config-test-connection" class="red-ui-button">Test Connection</button>
         <span id="node-config-test-connection-status" class="test-status"></span>
         <span id="node-config-test-connection-message" class="test-message"></span>
@@ -144,6 +245,36 @@
         <dd>Your API token (required if using Token or JWT auth)</dd>
     </dl>
 
+    <h3>Resilience Configuration</h3>
+    <p>Advanced configuration options to improve reliability and handle API failures gracefully.</p>
+    
+    <h4>Retry Policy</h4>
+    <dl class="message-properties">
+        <dt>Enable Retry Policy <span class="property-type">boolean</span></dt>
+        <dd>Automatically retry failed requests with exponential backoff and jitter</dd>
+
+        <dt>Max Attempts <span class="property-type">number</span></dt>
+        <dd>Maximum number of retry attempts (1-10, default: 3)</dd>
+
+        <dt>Base Delay <span class="property-type">number</span></dt>
+        <dd>Initial delay between retries in milliseconds (100-10000, default: 1000)</dd>
+
+        <dt>Max Delay <span class="property-type">number</span></dt>
+        <dd>Maximum delay between retries in milliseconds (1000-300000, default: 30000)</dd>
+    </dl>
+
+    <h4>Circuit Breaker</h4>
+    <dl class="message-properties">
+        <dt>Enable Circuit Breaker <span class="property-type">boolean</span></dt>
+        <dd>Prevent cascading failures by temporarily blocking requests after repeated failures</dd>
+
+        <dt>Failure Threshold <span class="property-type">number</span></dt>
+        <dd>Number of consecutive failures before opening the circuit (1-50, default: 5)</dd>
+
+        <dt>Reset Timeout <span class="property-type">number</span></dt>
+        <dd>Wait time in milliseconds before attempting to close the circuit (5000-600000, default: 60000)</dd>
+    </dl>
+
     <h3>Details</h3>
     <p>This node configures the connection to a wger instance. You can use the official https://wger.de server or your own self-hosted instance.</p>
 
@@ -154,6 +285,14 @@
         <li><b>Token</b> - Uses a permanent API token</li>
         <li><b>JWT</b> - Uses JSON Web Tokens for authentication</li>
     </ul>
+
+    <h3>Resilience Features</h3>
+    <p>The resilience configuration helps improve reliability when dealing with network issues or API problems:</p>
+    <ul>
+        <li><b>Retry Policy</b> - Automatically retries failed requests using exponential backoff with jitter to prevent thundering herd problems. Retries are attempted for network errors, timeouts, and specific HTTP status codes (429, 502, 503, 504).</li>
+        <li><b>Circuit Breaker</b> - Temporarily blocks requests when too many consecutive failures occur, giving the API time to recover. The circuit automatically attempts to close after the reset timeout period.</li>
+    </ul>
+    <p>These features are particularly useful when connecting to self-hosted wger instances or when dealing with unreliable network conditions.</p>
 
     <h3>References</h3>
     <ul>
@@ -187,5 +326,51 @@
   .test-message {
     margin-left: 10px;
     color: #666;
+  }
+
+  .node-config-section-header {
+    background-color: #f9f9f9;
+    border-radius: 3px;
+    padding: 8px 12px !important;
+    margin: 15px 0 5px 0 !important;
+    border-top: 1px solid #ddd !important;
+    user-select: none;
+    transition: background-color 0.2s;
+  }
+
+  .node-config-section-header:hover {
+    background-color: #f0f0f0;
+  }
+
+  .node-config-section-header i {
+    color: #666;
+    transition: transform 0.2s;
+  }
+
+  .node-config-section-content {
+    border-left: 2px solid #e6e6e6;
+    margin-left: 10px;
+    padding-left: 15px;
+    background-color: #fafafa;
+    border-radius: 0 3px 3px 0;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .form-tips {
+    font-size: 11px;
+    color: #888;
+    font-style: italic;
+    margin-top: 2px;
+    line-height: 1.3;
+  }
+
+  .node-config-section-content .form-row {
+    margin-bottom: 12px;
+  }
+
+  .node-config-section-content input[type="number"] {
+    background-color: white;
+    border: 1px solid #ccc;
   }
 </style>

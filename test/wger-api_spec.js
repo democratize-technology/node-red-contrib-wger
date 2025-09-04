@@ -181,4 +181,118 @@ describe('wger-api Node', function () {
       n1.receive({ payload: {} });
     });
   });
+
+  describe('Security Tests', function() {
+    it('should reject path traversal attempts in endpoints', function (done) {
+      const flow = [
+        { id: 'n1', type: 'wger-api', server: 'c1', method: 'GET', wires: [[]] },
+        { id: 'c1', type: 'wger-config', apiUrl: 'https://test.api' }
+      ];
+      
+      helper.load([wgerApiNode, wgerConfigNode], flow, function () {
+        const n1 = helper.getNode('n1');
+        
+        n1.on('call:error', (call) => {
+          call.firstArg.message.should.include('Endpoint cannot contain path traversal patterns');
+          done();
+        });
+
+        // Send message with path traversal in endpoint
+        n1.receive({ endpoint: '/api/v2/../../../admin' });
+      });
+    });
+
+    it('should reject path traversal in path parameters', function (done) {
+      const flow = [
+        { id: 'n1', type: 'wger-api', server: 'c1', method: 'GET', endpoint: '/exercise/{id}', wires: [[]] },
+        { id: 'c1', type: 'wger-config', apiUrl: 'https://test.api' }
+      ];
+      
+      helper.load([wgerApiNode, wgerConfigNode], flow, function () {
+        const n1 = helper.getNode('n1');
+        
+        n1.on('call:error', (call) => {
+          call.firstArg.message.should.include('contains path traversal patterns');
+          done();
+        });
+
+        // Send message with path traversal in parameter
+        n1.receive({ params: { id: '../../../etc/passwd' } });
+      });
+    });
+
+    it('should properly encode path parameters', function (done) {
+      const flow = [
+        { id: 'n1', type: 'wger-api', server: 'c1', method: 'GET', endpoint: '/exercise/{name}', wires: [['n2']] },
+        { id: 'n2', type: 'helper' },
+        { id: 'c1', type: 'wger-config', apiUrl: 'https://test.api' }
+      ];
+      
+      // Mock the WgerApiClient
+      const WgerApiClient = require('../utils/api-client');
+      const mockGet = sinon.stub().resolves({ data: 'response' });
+      sinon.stub(WgerApiClient.prototype, 'get').callsFake(mockGet);
+      
+      helper.load([wgerApiNode, wgerConfigNode], flow, function () {
+        const n1 = helper.getNode('n1');
+        const n2 = helper.getNode('n2');
+        
+        n2.on('input', function (msg) {
+          // Verify that special characters are properly encoded
+          mockGet.should.have.been.calledWith('/exercise/test%20name%26param');
+          done();
+        });
+
+        // Send message with special characters that need encoding
+        n1.receive({ params: { name: 'test name&param' } });
+      });
+    });
+
+    it('should reject overly long parameters', function (done) {
+      const flow = [
+        { id: 'n1', type: 'wger-api', server: 'c1', method: 'GET', endpoint: '/exercise', wires: [[]] },
+        { id: 'c1', type: 'wger-config', apiUrl: 'https://test.api' }
+      ];
+      
+      helper.load([wgerApiNode, wgerConfigNode], flow, function () {
+        const n1 = helper.getNode('n1');
+        
+        n1.on('call:error', (call) => {
+          call.firstArg.message.should.include('too long');
+          done();
+        });
+
+        // Send message with extremely long parameter
+        const longParam = 'a'.repeat(1001);
+        n1.receive({ params: { search: longParam } });
+      });
+    });
+
+    it('should allow safe special characters in parameters', function (done) {
+      const flow = [
+        { id: 'n1', type: 'wger-api', server: 'c1', method: 'GET', endpoint: '/exercise/{id}', wires: [['n2']] },
+        { id: 'n2', type: 'helper' },
+        { id: 'c1', type: 'wger-config', apiUrl: 'https://test.api' }
+      ];
+      
+      // Mock the WgerApiClient
+      const WgerApiClient = require('../utils/api-client');
+      const mockGet = sinon.stub().resolves({ data: 'response' });
+      sinon.stub(WgerApiClient.prototype, 'get').callsFake(mockGet);
+      
+      helper.load([wgerApiNode, wgerConfigNode], flow, function () {
+        const n1 = helper.getNode('n1');
+        const n2 = helper.getNode('n2');
+        
+        n2.on('input', function (msg) {
+          // Verify safe characters are allowed
+          mockGet.should.have.been.calledWith('/exercise/test-id_123.v2');
+          done();
+        });
+
+        // Send message with safe special characters
+        n1.receive({ params: { id: 'test-id_123.v2' } });
+      });
+    });
+  });
 });

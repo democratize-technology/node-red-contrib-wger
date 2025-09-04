@@ -312,7 +312,7 @@ describe('wger-user Node', function () {
       const n1 = helper.getNode('n1');
       
       n1.on('call:error', (call) => {
-        call.firstArg.message.should.equal('category, value, and date are required');
+        call.firstArg.message.should.equal('date is required');
         done();
       });
 

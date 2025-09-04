@@ -245,7 +245,7 @@ describe('wger-nutrition Node', function () {
       const n1 = helper.getNode('n1');
       
       n1.on('call:error', (call) => {
-        call.firstArg.message.should.equal('plan and time are required');
+        call.firstArg.message.should.equal('time is required');
         done();
       });
 
@@ -292,7 +292,7 @@ describe('wger-nutrition Node', function () {
       const n1 = helper.getNode('n1');
       
       n1.on('call:error', (call) => {
-        call.firstArg.message.should.equal('search term is required');
+        call.firstArg.message.should.equal('term is required');
         done();
       });
 

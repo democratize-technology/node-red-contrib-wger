@@ -3,6 +3,7 @@ const helper = require('node-red-node-test-helper');
 const wgerWeightNode = require('../nodes/wger-weight');
 const wgerConfigNode = require('../nodes/wger-config');
 const sinon = require('sinon');
+const { resetSharedCache } = require('../utils/weight-stats-cache');
 
 helper.init(require.resolve('node-red'));
 
@@ -15,6 +16,7 @@ describe('wger-weight Node', function () {
     helper.unload();
     helper.stopServer(done);
     sinon.restore();
+    resetSharedCache(); // Clear cache between tests
   });
 
   it('should be loaded', function (done) {
@@ -147,7 +149,7 @@ describe('wger-weight Node', function () {
       const n1 = helper.getNode('n1');
       
       n1.on('call:error', (call) => {
-        call.firstArg.message.should.equal('entryId is required');
+        call.firstArg.message.should.containEql('entryId');
         done();
       });
 
@@ -196,7 +198,7 @@ describe('wger-weight Node', function () {
       const n1 = helper.getNode('n1');
       
       n1.on('call:error', (call) => {
-        call.firstArg.message.should.equal('weight and date are required');
+        call.firstArg.message.should.containEql('date');
         done();
       });
 
@@ -284,6 +286,10 @@ describe('wger-weight Node', function () {
         msg.payload.stats.should.have.property('avg', 74);
         msg.payload.stats.should.have.property('change', 2);
         msg.payload.stats.should.have.property('count', 3);
+        // New fields from optimized implementation
+        msg.payload.stats.should.have.property('changePercent');
+        msg.payload.stats.should.have.property('trend');
+        msg.payload.should.have.property('performance');
         done();
       });
 
@@ -336,6 +342,123 @@ describe('wger-weight Node', function () {
       });
 
       n1.receive({ payload: {} });
+    });
+  });
+
+  it('should cache weight statistics for performance', function (done) {
+    const flow = [
+      { id: 'n1', type: 'wger-weight', server: 'c1', operation: 'getWeightStats', wires: [['n2']] },
+      { id: 'n2', type: 'helper' },
+      { id: 'c1', type: 'wger-config' }
+    ];
+    
+    const WgerApiClient = require('../utils/api-client');
+    const mockData = {
+      results: [
+        { weight: 75, date: '2025-09-04' },
+        { weight: 74.5, date: '2025-09-03' },
+        { weight: 74, date: '2025-09-02' }
+      ]
+    };
+    
+    const mockGet = sinon.stub().resolves(mockData);
+    sinon.stub(WgerApiClient.prototype, 'get').callsFake(mockGet);
+    
+    helper.load([wgerWeightNode, wgerConfigNode], flow, function () {
+      const n1 = helper.getNode('n1');
+      const n2 = helper.getNode('n2');
+      
+      let callCount = 0;
+      n2.on('input', function (msg) {
+        callCount++;
+        
+        if (callCount === 1) {
+          // First call should fetch from API
+          msg.payload.performance.fromCache.should.equal(false);
+          mockGet.callCount.should.equal(1);
+          
+          // Send second request immediately
+          n1.receive({ payload: {} });
+        } else if (callCount === 2) {
+          // Second call should use cache
+          msg.payload.performance.fromCache.should.equal(true);
+          mockGet.callCount.should.equal(1); // Should still be 1
+          msg.payload.performance.cacheMetrics.hitRate.should.not.equal('0%');
+          done();
+        }
+      });
+
+      n1.receive({ payload: {} });
+    });
+  });
+
+  it('should invalidate cache on weight entry changes', function (done) {
+    const flow = [
+      { id: 'n1', type: 'wger-weight', server: 'c1', operation: 'createWeightEntry', wires: [['n2']] },
+      { id: 'n2', type: 'helper' },
+      { id: 'c1', type: 'wger-config' }
+    ];
+    
+    const WgerApiClient = require('../utils/api-client');
+    const mockPost = sinon.stub().resolves({ id: 1, weight: 74, date: '2025-09-04' });
+    sinon.stub(WgerApiClient.prototype, 'post').callsFake(mockPost);
+    
+    // Pre-populate cache
+    const { getSharedCache } = require('../utils/weight-stats-cache');
+    const cache = getSharedCache();
+    cache.set('c1', '', '', { stats: { avg: 75 } }, {}, 1);
+    
+    helper.load([wgerWeightNode, wgerConfigNode], flow, function () {
+      const n1 = helper.getNode('n1');
+      const n2 = helper.getNode('n2');
+      
+      n2.on('input', function (msg) {
+        // After create operation, cache should be invalidated
+        const cacheResult = cache.get('c1', '', '', {});
+        should.not.exist(cacheResult);
+        done();
+      });
+
+      n1.receive({ payload: { weight: 74, date: '2025-09-04' } });
+    });
+  });
+
+  it('should support advanced statistics options', function (done) {
+    const flow = [
+      { id: 'n1', type: 'wger-weight', server: 'c1', operation: 'getWeightStats', wires: [['n2']] },
+      { id: 'n2', type: 'helper' },
+      { id: 'c1', type: 'wger-config' }
+    ];
+    
+    const WgerApiClient = require('../utils/api-client');
+    const mockGet = sinon.stub().resolves({
+      results: [
+        { weight: 75, date: '2025-09-04' },
+        { weight: 74, date: '2025-08-28' },
+        { weight: 73, date: '2025-08-21' }
+      ]
+    });
+    sinon.stub(WgerApiClient.prototype, 'get').callsFake(mockGet);
+    
+    helper.load([wgerWeightNode, wgerConfigNode], flow, function () {
+      const n1 = helper.getNode('n1');
+      const n2 = helper.getNode('n2');
+      
+      n2.on('input', function (msg) {
+        msg.payload.stats.should.have.property('median');
+        msg.payload.stats.should.have.property('standardDeviation');
+        msg.payload.stats.should.have.property('weeklyAverages');
+        msg.payload.stats.should.have.property('monthlyAverages');
+        done();
+      });
+
+      n1.receive({ 
+        payload: { 
+          includeAdvanced: true,
+          includeWeekly: true,
+          includeMonthly: true
+        } 
+      });
     });
   });
 });

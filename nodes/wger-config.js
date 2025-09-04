@@ -8,10 +8,11 @@ module.exports = function (RED) {
     this.name = n.name;
     this.apiUrl = n.apiUrl || DEFAULTS.API_URL;
     this.authType = n.authType || DEFAULTS.AUTH_TYPE;
+    this.allowPrivateHosts = n.allowPrivateHosts || false;
     
     // Validate URL on node initialization (synchronous for immediate feedback)
     const validationResult = validateUrlSync(this.apiUrl, {
-      isDevelopment: isDevEnvironment(this.apiUrl)
+      isDevelopment: isDevEnvironment(this.apiUrl) || this.allowPrivateHosts
     });
     
     if (!validationResult.valid) {
@@ -74,7 +75,7 @@ module.exports = function (RED) {
     this.testConnection = async function () {
       // Perform comprehensive URL validation with DNS resolution
       const validationResult = await validateUrl(this.apiUrl, {
-        isDevelopment: this.isTestMode || isDevEnvironment(this.apiUrl)
+        isDevelopment: this.isTestMode || isDevEnvironment(this.apiUrl) || this.allowPrivateHosts
       });
       
       if (!validationResult.valid) {
@@ -149,7 +150,7 @@ module.exports = function (RED) {
       // New node or unsaved changes - create temporary test instance
       // This handles the case where user is testing before saving the config
       try {
-        const { apiUrl, authType } = req.body;
+        const { apiUrl, authType, allowPrivateHosts } = req.body;
         
         // Get credentials from Node-RED's credential store if they exist
         // For new nodes, the credentials are temporarily stored by Node-RED's UI
@@ -164,7 +165,8 @@ module.exports = function (RED) {
         
         // Validate URL with SSRF protection
         const isDev = isDevEnvironment(testConfig.apiUrl) || 
-                      DEFAULTS.TEST_MODE_PATTERNS.some(pattern => testConfig.apiUrl.includes(pattern));
+                      DEFAULTS.TEST_MODE_PATTERNS.some(pattern => testConfig.apiUrl.includes(pattern)) ||
+                      allowPrivateHosts;
         
         const validationResult = await validateUrl(testConfig.apiUrl, {
           isDevelopment: isDev

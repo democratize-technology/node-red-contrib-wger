@@ -42,18 +42,14 @@ describe('URL Validator Security Tests', function() {
       result.errors.should.be.empty();
     });
     
-    it('should reject non-whitelisted domains in production', async function() {
+    it('should allow any domain in production (whitelist removed)', async function() {
       const result = await validateUrl('https://evil.com');
-      result.should.have.property('valid', false);
-      result.errors.should.not.be.empty();
-      result.errors[0].should.containEql('Domain not whitelisted');
+      result.should.have.property('valid', true);
     });
     
-    it('should allow non-whitelisted domains in development with warning', async function() {
+    it('should allow any domains in development without warnings', async function() {
       const result = await validateUrl('https://custom-wger.com', { isDevelopment: true });
       result.should.have.property('valid', true);
-      result.warnings.should.not.be.empty();
-      result.warnings[0].should.containEql('non-whitelisted domain');
     });
     
     it('should accept additional whitelisted domains', async function() {
@@ -457,9 +453,7 @@ describe('URL Validator Security Tests', function() {
     });
     
     it('should handle international domain names', async function() {
-      const result = await validateUrl('https://münchen.wger.de', {
-        additionalWhitelist: ['münchen.wger.de']
-      });
+      const result = await validateUrl('https://münchen.wger.de');
       result.should.have.property('valid', true);
     });
   });

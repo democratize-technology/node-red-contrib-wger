@@ -16,11 +16,9 @@ const SECURITY_CONFIG = {
   // Allowed protocols
   ALLOWED_PROTOCOLS: ['http:', 'https:'],
   
-  // Whitelisted domains for wger instances
-  WHITELISTED_DOMAINS: [
-    'wger.de',
-    '*.wger.de'  // Subdomains like api.wger.de
-  ],
+  // Domain whitelisting removed to support self-hosted wger instances
+  // SSRF protection is maintained through IP range blocking
+  WHITELISTED_DOMAINS: [],
   
   // Private IP ranges (RFC 1918)
   PRIVATE_IP_RANGES: [
@@ -297,19 +295,20 @@ async function validateUrl(urlString, options = {}) {
       result.warnings.push(`Warning: Using restricted IP in development mode: ${ipCheck.reason}`);
     }
   } else {
-    // It's a hostname - check against whitelist
+    // It's a hostname - check against whitelist if any patterns are configured
     const allWhitelist = [...SECURITY_CONFIG.WHITELISTED_DOMAINS, ...additionalWhitelist];
-    const isWhitelisted = allWhitelist.some(pattern => 
+    const hasWhitelist = allWhitelist.length > 0;
+    const isWhitelisted = !hasWhitelist || allWhitelist.some(pattern => 
       matchesWildcardDomain(hostname, pattern)
     );
     
-    // In development mode, allow any domain but warn
-    if (!isWhitelisted && !isDevelopment) {
+    // Only enforce whitelist if patterns are configured and not in development
+    if (!isWhitelisted && !isDevelopment && hasWhitelist) {
       result.errors.push(`Domain not whitelisted: ${hostname}. Allowed domains: ${allWhitelist.join(', ')}`);
       return result;
     }
     
-    if (!isWhitelisted && isDevelopment) {
+    if (!isWhitelisted && isDevelopment && hasWhitelist) {
       result.warnings.push(`Warning: Using non-whitelisted domain in development mode: ${hostname}`);
     }
     
@@ -443,11 +442,12 @@ function validateUrlSync(urlString, options = {}) {
     }
   } else {
     const allWhitelist = [...SECURITY_CONFIG.WHITELISTED_DOMAINS, ...additionalWhitelist];
-    const isWhitelisted = allWhitelist.some(pattern => 
+    const hasWhitelist = allWhitelist.length > 0;
+    const isWhitelisted = !hasWhitelist || allWhitelist.some(pattern => 
       matchesWildcardDomain(hostname, pattern)
     );
     
-    if (!isWhitelisted && !isDevelopment) {
+    if (!isWhitelisted && !isDevelopment && hasWhitelist) {
       result.errors.push(`Domain not whitelisted: ${hostname}. Allowed domains: ${allWhitelist.join(', ')}`);
       return result;
     }

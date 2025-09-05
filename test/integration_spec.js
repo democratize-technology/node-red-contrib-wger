@@ -105,7 +105,7 @@ describe('Integration Tests', function () {
         const exercise = helper.getNode('exercise');
         const nutrition = helper.getNode('nutrition');
         let exerciseErrorReceived = false;
-        let nutritionErrorReceived = false;
+        const _nutritionErrorReceived = false;
 
         exercise.on('call:error', (call) => {
           exerciseErrorReceived = true;
@@ -113,7 +113,7 @@ describe('Integration Tests', function () {
         });
 
         nutrition.on('call:error', (call) => {
-          nutritionErrorReceived = true;
+          // _nutritionErrorReceived = true; // unused variable marked with underscore
           call.firstArg.should.be.an.Error();
         });
 
@@ -166,12 +166,12 @@ describe('Integration Tests', function () {
         let userAuthChecked = false;
         let weightAuthChecked = false;
 
-        user.on('call:error', (call) => {
+        user.on('call:error', (_call) => {
           userAuthChecked = true;
           // Should handle auth errors gracefully
         });
 
-        weight.on('call:error', (call) => {
+        weight.on('call:error', (_call) => {
           weightAuthChecked = true;
           // Should handle auth errors gracefully
         });
@@ -308,7 +308,7 @@ describe('Integration Tests', function () {
         let completedOperations = 0;
         const totalOperations = 20;
 
-        result.on('input', function (msg) {
+        result.on('input', function (_msg) {
           completedOperations++;
           if (completedOperations === totalOperations) {
             // All operations completed - check for memory stability
@@ -467,8 +467,8 @@ describe('Integration Tests', function () {
 
   describe('Error Recovery and Resilience', function() {
     it('should recover from network failures', function (done) {
-      const requestCount = 0;
-      const originalRequest = require('axios');
+      const _requestCount = 0;
+      const _originalRequest = require('axios');
       
       // Mock axios to fail first request, succeed on retry
       const mockAxios = sinon.stub();
@@ -507,7 +507,7 @@ describe('Integration Tests', function () {
           }, 500);
         });
 
-        result.on('input', (msg) => {
+        result.on('input', (_msg) => {
           successCount++;
           errorCount.should.equal(1);
           successCount.should.equal(1);

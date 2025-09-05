@@ -59,7 +59,7 @@ describe('WeightStatsCache', function() {
     });
 
     it('should sanitize special characters in cache keys', function() {
-      const data = { test: 'data' };
+      const _data = { test: 'data' };
       
       // Test various injection attempts
       const maliciousIds = [
@@ -230,7 +230,7 @@ describe('WeightStatsCache', function() {
         return { results: [1, 2, 3] };
       };
       
-      const calculateFunction = (data) => {
+      const calculateFunction = (_data) => {
         calcCalled++;
         return { average: 2, sum: 6 };
       };

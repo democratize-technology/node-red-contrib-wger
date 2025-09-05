@@ -1,6 +1,6 @@
 const should = require('should');
 const sinon = require('sinon');
-const proxyquire = require('proxyquire');
+const _proxyquire = require('proxyquire');
 
 describe('WgerApiClient', function () {
   let WgerApiClient;

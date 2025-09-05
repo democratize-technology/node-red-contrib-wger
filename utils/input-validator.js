@@ -152,7 +152,7 @@ class InputValidator {
       [this.TYPES.URL]: this._buildUrlSchema,
       [this.TYPES.ARRAY]: this._buildArraySchema,
       [this.TYPES.OBJECT]: this._buildObjectSchema,
-      [this.TYPES.ID]: this._buildIdSchema,
+      [this.TYPES.ID]: this._buildIdSchema
     };
     
     return builders[type] || this._buildAnySchema;
@@ -166,7 +166,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod string schema
    */
-  static _buildStringSchema(fieldName, schema) {
+  static _buildStringSchema(fieldName, _schema) {
     return z.union([
       z.string(),
       z.number().transform(val => String(val)),
@@ -195,7 +195,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod number schema
    */
-  static _buildNumberSchema(fieldName, schema) {
+  static _buildNumberSchema(fieldName, _schema) {
     return z.union([
       z.number(),
       z.string().transform((val, ctx) => {
@@ -210,7 +210,7 @@ class InputValidator {
         return num;
       })
     ], {
-      errorMap: (issue, ctx) => {
+      errorMap: (issue, _ctx) => {
         if (issue.code === 'invalid_union') {
           return { message: `Field '${fieldName}' must be a valid number` };
         }
@@ -227,7 +227,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod integer schema
    */
-  static _buildIntegerSchema(fieldName, schema) {
+  static _buildIntegerSchema(fieldName, _schema) {
     return z.union([
       z.number().int(),
       z.string().transform((val, ctx) => {
@@ -242,7 +242,7 @@ class InputValidator {
         return num;
       })
     ], {
-      errorMap: (issue, ctx) => {
+      errorMap: (issue, _ctx) => {
         if (issue.code === 'invalid_union') {
           return { message: `Field '${fieldName}' must be an integer` };
         }
@@ -259,7 +259,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod boolean schema
    */
-  static _buildBooleanSchema(fieldName, schema) {
+  static _buildBooleanSchema(fieldName, _schema) {
     return z.union([
       z.boolean(),
       z.string().transform((val, ctx) => {
@@ -272,7 +272,7 @@ class InputValidator {
         return z.NEVER;
       })
     ], {
-      errorMap: (issue, ctx) => {
+      errorMap: (issue, _ctx) => {
         if (issue.code === 'invalid_union') {
           return { message: `Field '${fieldName}' must be a boolean` };
         }
@@ -289,7 +289,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod date schema
    */
-  static _buildDateSchema(fieldName, schema) {
+  static _buildDateSchema(fieldName, _schema) {
     return z.union([
       z.date().transform(date => {
         if (isNaN(date.getTime())) {
@@ -315,7 +315,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod email schema
    */
-  static _buildEmailSchema(fieldName, schema) {
+  static _buildEmailSchema(fieldName, _schema) {
     return z.string()
       .email({ message: `Field '${fieldName}' must be a valid email address` })
       .transform(val => validator.normalizeEmail(val) || val);
@@ -329,7 +329,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod URL schema
    */
-  static _buildUrlSchema(fieldName, schema) {
+  static _buildUrlSchema(fieldName, _schema) {
     return z.string().url({ message: `Field '${fieldName}' must be a valid URL with protocol` })
       .refine(val => validator.isURL(val, { require_protocol: true }), {
         message: `Field '${fieldName}' must be a valid URL with protocol`
@@ -344,7 +344,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod array schema
    */
-  static _buildArraySchema(fieldName, schema) {
+  static _buildArraySchema(fieldName, _schema) {
     return z.array(z.any(), {
       invalid_type_error: `Field '${fieldName}' must be an array`,
       required_error: `Required field '${fieldName}' is missing or null`
@@ -359,7 +359,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod object schema
    */
-  static _buildObjectSchema(fieldName, schema) {
+  static _buildObjectSchema(fieldName, _schema) {
     return z.object({}).passthrough()
       .refine(val => val !== null && !Array.isArray(val), {
         message: `Field '${fieldName}' must be an object`
@@ -374,7 +374,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod ID schema
    */
-  static _buildIdSchema(fieldName, schema) {
+  static _buildIdSchema(fieldName, _schema) {
     return z.union([
       z.string(),
       z.number().int()
@@ -412,7 +412,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod any schema
    */
-  static _buildAnySchema(fieldName, schema) {
+  static _buildAnySchema(_fieldName, _schema) {
     return z.any();
   }
 
@@ -722,104 +722,104 @@ class InputValidator {
   static _formatZodError(issue, fieldName, schema = null) {
     // Map Zod error codes to our expected messages
     switch (issue.code) {
-      case 'invalid_type':
-        if (issue.expected === 'string') {
-          return `Field '${fieldName}' must be a string, got ${issue.received}`;
-        }
-        if (issue.expected === 'number') {
-          // Check if this is an integer field by looking at the schema
-          if (schema && schema.type === InputValidator.TYPES.INTEGER) {
-            return `Field '${fieldName}' must be an integer`;
-          }
-          return `Field '${fieldName}' must be a valid number`;
-        }
-        if (issue.expected === 'boolean') {
-          return `Field '${fieldName}' must be a boolean`;
-        }
-        if (issue.expected === 'array') {
-          return `Field '${fieldName}' must be an array`;
-        }
-        if (issue.expected === 'object') {
-          return `Field '${fieldName}' must be an object`;
-        }
-        return issue.message;
-      case 'invalid_union':
-        // Check if this is an integer field first - integer unions should always say "must be an integer"
+    case 'invalid_type':
+      if (issue.expected === 'string') {
+        return `Field '${fieldName}' must be a string, got ${issue.received}`;
+      }
+      if (issue.expected === 'number') {
+        // Check if this is an integer field by looking at the schema
         if (schema && schema.type === InputValidator.TYPES.INTEGER) {
           return `Field '${fieldName}' must be an integer`;
         }
+        return `Field '${fieldName}' must be a valid number`;
+      }
+      if (issue.expected === 'boolean') {
+        return `Field '${fieldName}' must be a boolean`;
+      }
+      if (issue.expected === 'array') {
+        return `Field '${fieldName}' must be an array`;
+      }
+      if (issue.expected === 'object') {
+        return `Field '${fieldName}' must be an object`;
+      }
+      return issue.message;
+    case 'invalid_union':
+      // Check if this is an integer field first - integer unions should always say "must be an integer"
+      if (schema && schema.type === InputValidator.TYPES.INTEGER) {
+        return `Field '${fieldName}' must be an integer`;
+      }
         
-        // Check if this union has a custom error message from errorMap
-        if (issue.message && !issue.message.startsWith('Invalid input')) {
-          return issue.message;
-        }
+      // Check if this union has a custom error message from errorMap
+      if (issue.message && !issue.message.startsWith('Invalid input')) {
+        return issue.message;
+      }
         
-        // Handle union type errors more specifically
-        if (issue.errors && issue.errors[0] && issue.errors[0][0]) {
-          const firstError = issue.errors[0][0];
-          if (firstError.code === 'invalid_type') {
-            const expectedType = firstError.expected;
-            const receivedType = firstError.message.includes('received object') ? 'object' :
-                               firstError.message.includes('received array') ? 'array' :
-                               firstError.message.includes('received null') ? 'null' :
-                               firstError.message.includes('received undefined') ? 'undefined' :
-                               'unknown';
+      // Handle union type errors more specifically
+      if (issue.errors && issue.errors[0] && issue.errors[0][0]) {
+        const firstError = issue.errors[0][0];
+        if (firstError.code === 'invalid_type') {
+          const expectedType = firstError.expected;
+          const receivedType = firstError.message.includes('received object') ? 'object' :
+            firstError.message.includes('received array') ? 'array' :
+              firstError.message.includes('received null') ? 'null' :
+                firstError.message.includes('received undefined') ? 'undefined' :
+                  'unknown';
             
-            if (expectedType === 'string') {
-              return `Field '${fieldName}' must be a string, got ${receivedType}`;
-            }
-            if (expectedType === 'int') {
-              return `Field '${fieldName}' must be an integer`;
-            }
-            if (expectedType === 'number') {
-              return `Field '${fieldName}' must be a valid number`;
-            }
-            if (expectedType === 'boolean') {
-              return `Field '${fieldName}' must be a boolean`;
-            }
-            if (expectedType === 'array') {
-              return `Field '${fieldName}' must be an array`;
-            }
-            return `Field '${fieldName}' must be ${expectedType}, got ${receivedType}`;
+          if (expectedType === 'string') {
+            return `Field '${fieldName}' must be a string, got ${receivedType}`;
           }
+          if (expectedType === 'int') {
+            return `Field '${fieldName}' must be an integer`;
+          }
+          if (expectedType === 'number') {
+            return `Field '${fieldName}' must be a valid number`;
+          }
+          if (expectedType === 'boolean') {
+            return `Field '${fieldName}' must be a boolean`;
+          }
+          if (expectedType === 'array') {
+            return `Field '${fieldName}' must be an array`;
+          }
+          return `Field '${fieldName}' must be ${expectedType}, got ${receivedType}`;
         }
-        return `Field '${fieldName}' has invalid type`;
-      case 'too_small':
-        if (issue.type === 'string') {
-          return `Field '${fieldName}' must be at least ${issue.minimum} characters`;
-        }
-        if (issue.type === 'array') {
-          return `Field '${fieldName}' must have at least ${issue.minimum} items`;
-        }
-        return `Field '${fieldName}' must be at least ${issue.minimum}`;
-      case 'too_big':
-        if (issue.type === 'string') {
-          return `Field '${fieldName}' must be at most ${issue.maximum} characters`;
-        }
-        if (issue.type === 'array') {
-          return `Field '${fieldName}' must have at most ${issue.maximum} items`;
-        }
-        return `Field '${fieldName}' must be at most ${issue.maximum}`;
-      case 'invalid_string':
-        if (issue.validation === 'email') {
-          return `Field '${fieldName}' must be a valid email address`;
-        }
-        if (issue.validation === 'url') {
-          return `Field '${fieldName}' must be a valid URL with protocol`;
-        }
-        if (issue.validation === 'regex') {
-          return `Field '${fieldName}' has invalid format`;
-        }
+      }
+      return `Field '${fieldName}' has invalid type`;
+    case 'too_small':
+      if (issue.type === 'string') {
+        return `Field '${fieldName}' must be at least ${issue.minimum} characters`;
+      }
+      if (issue.type === 'array') {
+        return `Field '${fieldName}' must have at least ${issue.minimum} items`;
+      }
+      return `Field '${fieldName}' must be at least ${issue.minimum}`;
+    case 'too_big':
+      if (issue.type === 'string') {
+        return `Field '${fieldName}' must be at most ${issue.maximum} characters`;
+      }
+      if (issue.type === 'array') {
+        return `Field '${fieldName}' must have at most ${issue.maximum} items`;
+      }
+      return `Field '${fieldName}' must be at most ${issue.maximum}`;
+    case 'invalid_string':
+      if (issue.validation === 'email') {
+        return `Field '${fieldName}' must be a valid email address`;
+      }
+      if (issue.validation === 'url') {
+        return `Field '${fieldName}' must be a valid URL with protocol`;
+      }
+      if (issue.validation === 'regex') {
+        return `Field '${fieldName}' has invalid format`;
+      }
+      return issue.message;
+    case 'custom':
+      // Return custom error messages as-is
+      return issue.message;
+    default:
+      // Check if the message already contains the expected format
+      if (issue.message && !issue.message.startsWith('Invalid input')) {
         return issue.message;
-      case 'custom':
-        // Return custom error messages as-is
-        return issue.message;
-      default:
-        // Check if the message already contains the expected format
-        if (issue.message && !issue.message.startsWith('Invalid input')) {
-          return issue.message;
-        }
-        return `Field '${fieldName}' validation failed: ${issue.message}`;
+      }
+      return `Field '${fieldName}' validation failed: ${issue.message}`;
     }
   }
 

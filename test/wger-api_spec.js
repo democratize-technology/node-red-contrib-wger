@@ -237,7 +237,7 @@ describe('wger-api Node', function () {
         const n1 = helper.getNode('n1');
         const n2 = helper.getNode('n2');
         
-        n2.on('input', function (msg) {
+        n2.on('input', function (_msg) {
           // Verify that special characters are properly encoded
           mockGet.should.have.been.calledWith('/exercise/test%20name%26param');
           done();
@@ -284,7 +284,7 @@ describe('wger-api Node', function () {
         const n1 = helper.getNode('n1');
         const n2 = helper.getNode('n2');
         
-        n2.on('input', function (msg) {
+        n2.on('input', function (_msg) {
           // Verify safe characters are allowed
           mockGet.should.have.been.calledWith('/exercise/test-id_123.v2');
           done();

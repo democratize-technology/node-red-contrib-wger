@@ -5,7 +5,7 @@
  * @author Node-RED wger contrib team
  */
 
-const { handleAll, handleWhen, retry, ExponentialBackoff } = require('cockatiel');
+const { handleWhen, retry, ExponentialBackoff } = require('cockatiel');
 
 /**
  * Configuration options for retry policy behavior.

@@ -108,7 +108,7 @@ describe('wger-config Node', function () {
     it('should block private IP addresses in production', function (done) {
       const flow = [{ id: 'n1', type: 'wger-config', apiUrl: 'http://192.168.1.1' }];
       helper.load(wgerConfigNode, flow, function () {
-        const n1 = helper.getNode('n1');
+        const _n1 = helper.getNode('n1');
         // Should detect invalid URL and log error
         done();
       });
@@ -125,7 +125,7 @@ describe('wger-config Node', function () {
     it('should reject non-whitelisted domains', function (done) {
       const flow = [{ id: 'n1', type: 'wger-config', apiUrl: 'https://malicious.com' }];
       helper.load(wgerConfigNode, flow, function () {
-        const n1 = helper.getNode('n1');
+        const _n1 = helper.getNode('n1');
         // Should reject non-whitelisted domain
         done();
       });
@@ -425,7 +425,7 @@ describe('wger-config Node', function () {
         helper.request()
           .get('/wger-config/n1/test') // GET instead of POST
           .expect(404) // Should not be found or method not allowed
-          .end(function(err, res) {
+          .end(function(err, _res) {
             if (err) {
               return done(err);
             }

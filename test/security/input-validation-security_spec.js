@@ -3,7 +3,7 @@
  */
 
 const should = require('should');
-const sinon = require('sinon');
+const _sinon = require('sinon');
 const helper = require('node-red-node-test-helper');
 const { testHelper } = require('../test-helper');
 

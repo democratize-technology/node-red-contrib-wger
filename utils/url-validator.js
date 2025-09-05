@@ -262,39 +262,34 @@ function isValidIpAddress(ip) {
  * @returns {Promise<string[]>} Array of resolved IP addresses
  */
 async function resolveHostname(hostname) {
-  try {
-    // Set a timeout for DNS resolution
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('DNS resolution timeout')), SECURITY_CONFIG.DNS_TIMEOUT)
-    );
-    
-    // Try both IPv4 and IPv6 resolution
-    const promises = [];
-    
-    // IPv4 resolution - catch errors but preserve them for reporting
-    promises.push(dns.resolve4(hostname).catch(err => ({ error: err })));
-    
-    // IPv6 resolution - optional, many hosts don't have AAAA records
-    promises.push(dns.resolve6(hostname).catch(() => []));
-    
-    const results = await Promise.race([
-      Promise.all(promises),
-      timeoutPromise
-    ]);
-    
-    // Check if IPv4 resolution had an error (not just empty results)
-    if (results[0] && results[0].error) {
-      // Propagate the DNS error so it can be caught and reported as a warning
-      throw results[0].error;
-    }
-    
-    // Flatten and filter results
-    const allIps = results.flat().filter(ip => typeof ip === 'string');
-    return allIps;
-  } catch (error) {
-    // Propagate error to be caught in validateUrl for warning
-    throw error;
+  // Set a timeout for DNS resolution
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error('DNS resolution timeout')), SECURITY_CONFIG.DNS_TIMEOUT)
+  );
+  
+  // Try both IPv4 and IPv6 resolution
+  const promises = [];
+  
+  // IPv4 resolution - catch errors but preserve them for reporting
+  promises.push(dns.resolve4(hostname).catch(err => ({ error: err })));
+  
+  // IPv6 resolution - optional, many hosts don't have AAAA records
+  promises.push(dns.resolve6(hostname).catch(() => []));
+  
+  const results = await Promise.race([
+    Promise.all(promises),
+    timeoutPromise
+  ]);
+  
+  // Check if IPv4 resolution had an error (not just empty results)
+  if (results[0] && results[0].error) {
+    // Propagate the DNS error so it can be caught and reported as a warning
+    throw results[0].error;
   }
+  
+  // Flatten and filter results
+  const allIps = results.flat().filter(ip => typeof ip === 'string');
+  return allIps;
 }
 
 /**
@@ -326,7 +321,7 @@ async function validateUrl(urlString, options = {}) {
   if (!basicValidation.success) {
     return result;
   }
-  const { urlObj, trimmedUrl } = basicValidation;
+  const { urlObj } = basicValidation;
   result.normalizedUrl = urlObj.href;
   
   // Check for cloud metadata endpoints
@@ -582,8 +577,8 @@ function _performSecurityChecks(urlObj, result) {
  * @returns {Object} Validation result object
  */
 function validateUrlSync(urlString, options = {}) {
-  // Force skip DNS resolution for sync version
-  const syncOptions = { ...options, skipDnsResolution: true };
+  // Force skip DNS resolution for sync version (options unused in this implementation)
+  const _syncOptions = { ...options, skipDnsResolution: true };
   
   // Create a fake async wrapper that returns immediately
   const result = {
@@ -594,11 +589,7 @@ function validateUrlSync(urlString, options = {}) {
     normalizedUrl: null
   };
   
-  // Run the async validation synchronously (without DNS parts)
-  const _validationPromise = validateUrl(urlString, syncOptions);
-  
-  // Since we're skipping DNS, this should resolve immediately
-  // In practice, we'll need to extract the synchronous parts
+  // Since we're skipping DNS, perform synchronous validation only
   
   // For now, perform basic synchronous checks
   if (!urlString || typeof urlString !== 'string') {

@@ -6,8 +6,8 @@
 
 const should = require('should');
 const helper = require('node-red-node-test-helper');
-const sinon = require('sinon');
-const axios = require('axios');
+const _sinon = require('sinon');
+const _axios = require('axios');
 const wgerConfigNode = require('../../nodes/wger-config');
 const { testHelper } = require('../test-helper');
 
@@ -57,7 +57,7 @@ describe('SSRF Protection Security Tests', function() {
       }];
       
       helper.load(wgerConfigNode, flow, function() {
-        const n1 = helper.getNode('n1');
+        const _n1 = helper.getNode('n1');
         // Should not bypass localhost detection with subdomain tricks
         done();
       });
@@ -283,7 +283,7 @@ describe('SSRF Protection Security Tests', function() {
         n1.should.have.property('isTestMode', true);
         
         // In test mode, localhost should be allowed
-        const result = await n1.testConnection();
+        const _result = await n1.testConnection();
         // Won't actually connect but won't fail on URL validation
         done();
       });

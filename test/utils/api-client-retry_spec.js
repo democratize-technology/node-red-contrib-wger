@@ -437,7 +437,7 @@ describe('WgerApiClient - Retry Functionality', function() {
       await client.get('/api/v2/test');
       
       // Check that fetch was called with timeout in signal options
-      const [url, options] = fetchStub.getCall(0).args;
+      const [_url, options] = fetchStub.getCall(0).args;
       should.exist(options.signal);
       options.signal.should.be.instanceOf(AbortSignal);
     });

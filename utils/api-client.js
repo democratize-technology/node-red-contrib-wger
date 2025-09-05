@@ -192,39 +192,15 @@ class WgerApiClient {
   async _fetchWithConfig(config) {
     const { method, url, headers, params, data, timeout } = config;
     
-    // Build URL with query parameters for GET requests
-    let finalUrl = url;
-    if (method === 'GET' && params && Object.keys(params).length > 0) {
-      const urlParams = new URLSearchParams();
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          urlParams.append(key, String(value));
-        }
-      });
-      finalUrl = `${url}?${urlParams.toString()}`;
-    }
+    // Build final URL with query parameters
+    const finalUrl = this._buildRequestUrl(url, method, params);
     
-    // Setup AbortController for timeout
-    const controller = new AbortController();
-    let timeoutId;
-    if (timeout && timeout > 0) {
-      timeoutId = setTimeout(() => {
-        controller.abort();
-      }, timeout);
-    }
+    // Setup timeout controller
+    const { controller, timeoutId } = this._createTimeoutController(timeout);
     
     try {
       // Build fetch options
-      const options = {
-        method,
-        headers,
-        signal: controller.signal
-      };
-      
-      // Add body for non-GET requests
-      if (method !== 'GET' && data !== null && data !== undefined) {
-        options.body = JSON.stringify(data);
-      }
+      const options = this._setupRequestOptions(method, headers, data, controller.signal);
       
       const response = await fetch(finalUrl, options);
       
@@ -233,42 +209,14 @@ class WgerApiClient {
         clearTimeout(timeoutId);
       }
       
-      // Check if response is ok (2xx status)
+      // Handle non-2xx responses
       if (!response.ok) {
-        // Create axios-style error for HTTP errors
-        const error = new Error(`HTTP Error ${response.status}`);
-        error.response = {
-          status: response.status,
-          statusText: response.statusText,
-          data: {}
-        };
-        
-        // Try to parse error response body
-        try {
-          const text = await response.text();
-          if (text) {
-            try {
-              error.response.data = JSON.parse(text);
-            } catch {
-              error.response.data = { message: text };
-            }
-          }
-        } catch {
-          // Ignore errors reading response body
-        }
-        
-        throw error;
+        const httpError = await this._createHttpError(response);
+        throw httpError;
       }
       
-      // Parse response data
-      let responseData;
-      try {
-        const text = await response.text();
-        responseData = text ? JSON.parse(text) : {};
-      } catch {
-        // If JSON parsing fails, return empty object
-        responseData = {};
-      }
+      // Parse successful response
+      const responseData = await this._parseResponseData(response);
       
       return {
         data: responseData,
@@ -282,25 +230,156 @@ class WgerApiClient {
         clearTimeout(timeoutId);
       }
       
-      // Handle AbortError (timeout or manual abort)
-      if (error.name === 'AbortError') {
-        const timeoutError = new Error('Request timed out');
-        timeoutError.code = 'ETIMEDOUT';
-        timeoutError.request = {};
-        throw timeoutError;
-      }
-      
-      // Handle network/connection errors (but not AbortError which was handled above)
-      if (error.name !== 'AbortError' && (error.cause || error.message.includes('fetch') || error.code)) {
-        const networkError = new Error('Network Error');
-        networkError.code = error.code || 'ECONNREFUSED';
-        networkError.request = {};
-        throw networkError;
-      }
-      
-      // Re-throw other errors (including HTTP errors we created above)
-      throw error;
+      // Handle and transform various error types
+      const transformedError = this._handleNetworkError(error);
+      throw transformedError;
     }
+  }
+
+  /**
+   * Builds the final URL with query parameters for GET requests.
+   * 
+   * @private
+   * @param {string} url - Base URL
+   * @param {string} method - HTTP method
+   * @param {Object} params - URL parameters
+   * @returns {string} Final URL with query string if needed
+   */
+  _buildRequestUrl(url, method, params) {
+    if (method !== 'GET' || !params || Object.keys(params).length === 0) {
+      return url;
+    }
+    
+    const urlParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        urlParams.append(key, String(value));
+      }
+    });
+    
+    return `${url}?${urlParams.toString()}`;
+  }
+
+  /**
+   * Creates AbortController with timeout for request cancellation.
+   * 
+   * @private
+   * @param {number} timeout - Timeout in milliseconds
+   * @returns {Object} Object with controller and timeoutId
+   */
+  _createTimeoutController(timeout) {
+    const controller = new AbortController();
+    let timeoutId = null;
+    
+    if (timeout && timeout > 0) {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeout);
+    }
+    
+    return { controller, timeoutId };
+  }
+
+  /**
+   * Sets up fetch options including method, headers, body, and abort signal.
+   * 
+   * @private
+   * @param {string} method - HTTP method
+   * @param {Object} headers - Request headers
+   * @param {*} data - Request body data
+   * @param {AbortSignal} signal - Abort signal for timeout
+   * @returns {Object} Fetch options object
+   */
+  _setupRequestOptions(method, headers, data, signal) {
+    const options = {
+      method,
+      headers,
+      signal
+    };
+    
+    // Add body for non-GET requests
+    if (method !== 'GET' && data !== null && data !== undefined) {
+      options.body = JSON.stringify(data);
+    }
+    
+    return options;
+  }
+
+  /**
+   * Parses response data handling both JSON and text responses.
+   * 
+   * @private
+   * @param {Response} response - Fetch response object
+   * @returns {Promise<*>} Parsed response data
+   */
+  async _parseResponseData(response) {
+    try {
+      const text = await response.text();
+      return text ? JSON.parse(text) : {};
+    } catch {
+      // If JSON parsing fails, return empty object
+      return {};
+    }
+  }
+
+  /**
+   * Creates axios-compatible error object for HTTP errors.
+   * 
+   * @private
+   * @param {Response} response - Failed response object
+   * @returns {Promise<Error>} HTTP error with response data
+   */
+  async _createHttpError(response) {
+    const error = new Error(`HTTP Error ${response.status}`);
+    error.response = {
+      status: response.status,
+      statusText: response.statusText,
+      data: {}
+    };
+    
+    // Try to parse error response body
+    try {
+      const text = await response.text();
+      if (text) {
+        try {
+          error.response.data = JSON.parse(text);
+        } catch {
+          error.response.data = { message: text };
+        }
+      }
+    } catch {
+      // Ignore errors reading response body
+    }
+    
+    return error;
+  }
+
+  /**
+   * Handles and transforms network errors into expected format.
+   * 
+   * @private
+   * @param {Error} error - Original error
+   * @returns {Error} Transformed error in expected format
+   */
+  _handleNetworkError(error) {
+    // Handle AbortError (timeout or manual abort)
+    if (error.name === 'AbortError') {
+      const timeoutError = new Error('Request timed out');
+      timeoutError.code = 'ETIMEDOUT';
+      timeoutError.request = {};
+      return timeoutError;
+    }
+    
+    // Handle network/connection errors (but not AbortError which was handled above)
+    if (error && error.name !== 'AbortError' && (error.cause || error.message?.includes('fetch') || error.code)) {
+      const networkError = new Error('Network Error');
+      networkError.code = error.code || 'ECONNREFUSED';
+      networkError.request = {};
+      return networkError;
+    }
+    
+    // Re-throw other errors (including HTTP errors we created above)
+    return error;
   }
 
   /**
@@ -331,6 +410,17 @@ class WgerApiClient {
       enhancedError.name = 'NetworkError';
       return enhancedError;
     } else {
+      // Map Cockatiel circuit breaker errors to expected naming convention
+      if (error.constructor && error.constructor.name === 'BrokenCircuitError') {
+        error.name = 'CircuitBreakerOpenError';
+        // Normalize message to match expected format
+        error.message = 'Circuit breaker is open - too many recent failures';
+        return error;
+      }
+      // Preserve other Cockatiel error types
+      if (error.name && (error.name.includes('CircuitBreaker') || error.name.includes('Cockatiel'))) {
+        return error;
+      }
       // Request setup error
       error.name = error.name || 'RequestSetupError';
       return error;

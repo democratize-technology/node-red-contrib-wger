@@ -124,185 +124,296 @@ class InputValidator {
    * @private
    */
   static _buildZodSchema(schema, fieldName) {
-    let zodSchema;
-
-    // Build base type schema
-    switch (schema.type) {
-      case this.TYPES.STRING:
-        zodSchema = z.union([
-          z.string(),
-          z.number().transform(val => String(val)),
-          z.boolean().transform(val => String(val))
-        ], {
-          errorMap: (issue, ctx) => {
-            if (issue.code === 'invalid_union') {
-              return { message: `Field '${fieldName}' must be a string, got ${typeof ctx.data}` };
-            }
-            return { message: issue.message || `Field '${fieldName}' must be a string` };
-          }
-        }).refine((val) => {
-          // Path traversal check
-          if (val.includes('../') || val.includes('..\\')) {
-            return false;
-          }
-          return true;
-        }, { message: `Field '${fieldName}' contains invalid path traversal patterns` });
-        break;
-
-      case this.TYPES.NUMBER:
-        zodSchema = z.union([
-          z.number(),
-          z.string().transform((val, ctx) => {
-            const num = parseFloat(val);
-            if (isNaN(num)) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: `Field '${fieldName}' must be a valid number`
-              });
-              return z.NEVER;
-            }
-            return num;
-          })
-        ], {
-          errorMap: (issue, ctx) => {
-            if (issue.code === 'invalid_union') {
-              return { message: `Field '${fieldName}' must be a valid number` };
-            }
-            return { message: issue.message || `Field '${fieldName}' must be a valid number` };
-          }
-        });
-        break;
-
-      case this.TYPES.INTEGER:
-        zodSchema = z.union([
-          z.number().int(),
-          z.string().transform((val, ctx) => {
-            const num = parseInt(val, 10);
-            if (!Number.isInteger(num)) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: `Field '${fieldName}' must be an integer`
-              });
-              return z.NEVER;
-            }
-            return num;
-          })
-        ], {
-          errorMap: (issue, ctx) => {
-            if (issue.code === 'invalid_union') {
-              return { message: `Field '${fieldName}' must be an integer` };
-            }
-            return { message: issue.message || `Field '${fieldName}' must be an integer` };
-          }
-        });
-        break;
-
-      case this.TYPES.BOOLEAN:
-        zodSchema = z.union([
-          z.boolean(),
-          z.string().transform((val, ctx) => {
-            if (val === 'true') return true;
-            if (val === 'false') return false;
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `Field '${fieldName}' must be a boolean`
-            });
-            return z.NEVER;
-          })
-        ], {
-          errorMap: (issue, ctx) => {
-            if (issue.code === 'invalid_union') {
-              return { message: `Field '${fieldName}' must be a boolean` };
-            }
-            return { message: issue.message || `Field '${fieldName}' must be a boolean` };
-          }
-        });
-        break;
-
-      case this.TYPES.DATE:
-        zodSchema = z.union([
-          z.date().transform(date => {
-            if (isNaN(date.getTime())) {
-              throw new Error(`Field '${fieldName}' contains invalid date`);
-            }
-            return date.toISOString();
-          }),
-          z.string().refine((val) => {
-            const date = new Date(val);
-            if (isNaN(date.getTime())) {
-              return false;
-            }
-            return true;
-          }, { message: `Field '${fieldName}' must be a valid date string` })
-        ]);
-        break;
-
-      case this.TYPES.EMAIL:
-        zodSchema = z.string()
-          .email({ message: `Field '${fieldName}' must be a valid email address` })
-          .transform(val => validator.normalizeEmail(val) || val);
-        break;
-
-      case this.TYPES.URL:
-        zodSchema = z.string().url({ message: `Field '${fieldName}' must be a valid URL with protocol` })
-          .refine(val => validator.isURL(val, { require_protocol: true }), {
-            message: `Field '${fieldName}' must be a valid URL with protocol`
-          });
-        break;
-
-      case this.TYPES.ARRAY:
-        zodSchema = z.array(z.any(), {
-          invalid_type_error: `Field '${fieldName}' must be an array`,
-          required_error: `Required field '${fieldName}' is missing or null`
-        });
-        break;
-
-      case this.TYPES.OBJECT:
-        zodSchema = z.object({}).passthrough()
-          .refine(val => val !== null && !Array.isArray(val), {
-            message: `Field '${fieldName}' must be an object`
-          });
-        break;
-
-      case this.TYPES.ID:
-        zodSchema = z.union([
-          z.string(),
-          z.number().int()
-        ]).transform((val, ctx) => {
-          const idStrCheck = String(val);
-          if (idStrCheck.includes('../') || idStrCheck.includes('..\\')) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `Field '${fieldName}' contains invalid path traversal patterns`
-            });
-            return z.NEVER;
-          }
-          
-          if (typeof val === 'number' && Number.isInteger(val)) {
-            return val;
-          }
-          
-          const idStr = String(val);
-          if (!this.PATTERNS.ID.test(idStr)) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `Field '${fieldName}' contains invalid ID format`
-            });
-            return z.NEVER;
-          }
-          return idStr;
-        });
-        break;
-
-      default:
-        zodSchema = z.any();
-        break;
-    }
+    // Use strategy pattern to build base schema by type
+    const schemaBuilder = this._getSchemaBuilder(schema.type);
+    let zodSchema = schemaBuilder.call(this, fieldName, schema);
 
     // Apply additional validation rules
     zodSchema = this._applyValidationRules(zodSchema, schema, fieldName);
     
     return zodSchema;
+  }
+
+  /**
+   * Gets the appropriate schema builder function for the given type.
+   * 
+   * @private
+   * @param {string} type - The validation type
+   * @returns {Function} Schema builder function
+   */
+  static _getSchemaBuilder(type) {
+    const builders = {
+      [this.TYPES.STRING]: this._buildStringSchema,
+      [this.TYPES.NUMBER]: this._buildNumberSchema,
+      [this.TYPES.INTEGER]: this._buildIntegerSchema,
+      [this.TYPES.BOOLEAN]: this._buildBooleanSchema,
+      [this.TYPES.DATE]: this._buildDateSchema,
+      [this.TYPES.EMAIL]: this._buildEmailSchema,
+      [this.TYPES.URL]: this._buildUrlSchema,
+      [this.TYPES.ARRAY]: this._buildArraySchema,
+      [this.TYPES.OBJECT]: this._buildObjectSchema,
+      [this.TYPES.ID]: this._buildIdSchema,
+    };
+    
+    return builders[type] || this._buildAnySchema;
+  }
+
+  /**
+   * Builds a Zod schema for string validation with type coercion and security checks.
+   * 
+   * @private
+   * @param {string} fieldName - Field name for error messages
+   * @param {Object} schema - Schema configuration
+   * @returns {z.ZodType} Zod string schema
+   */
+  static _buildStringSchema(fieldName, schema) {
+    return z.union([
+      z.string(),
+      z.number().transform(val => String(val)),
+      z.boolean().transform(val => String(val))
+    ], {
+      errorMap: (issue, ctx) => {
+        if (issue.code === 'invalid_union') {
+          return { message: `Field '${fieldName}' must be a string, got ${typeof ctx.data}` };
+        }
+        return { message: issue.message || `Field '${fieldName}' must be a string` };
+      }
+    }).refine((val) => {
+      // Path traversal check
+      if (val.includes('../') || val.includes('..\\')) {
+        return false;
+      }
+      return true;
+    }, { message: `Field '${fieldName}' contains invalid path traversal patterns` });
+  }
+
+  /**
+   * Builds a Zod schema for number validation with string coercion.
+   * 
+   * @private
+   * @param {string} fieldName - Field name for error messages
+   * @param {Object} schema - Schema configuration
+   * @returns {z.ZodType} Zod number schema
+   */
+  static _buildNumberSchema(fieldName, schema) {
+    return z.union([
+      z.number(),
+      z.string().transform((val, ctx) => {
+        const num = parseFloat(val);
+        if (isNaN(num)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Field '${fieldName}' must be a valid number`
+          });
+          return z.NEVER;
+        }
+        return num;
+      })
+    ], {
+      errorMap: (issue, ctx) => {
+        if (issue.code === 'invalid_union') {
+          return { message: `Field '${fieldName}' must be a valid number` };
+        }
+        return { message: issue.message || `Field '${fieldName}' must be a valid number` };
+      }
+    });
+  }
+
+  /**
+   * Builds a Zod schema for integer validation with string coercion.
+   * 
+   * @private
+   * @param {string} fieldName - Field name for error messages
+   * @param {Object} schema - Schema configuration
+   * @returns {z.ZodType} Zod integer schema
+   */
+  static _buildIntegerSchema(fieldName, schema) {
+    return z.union([
+      z.number().int(),
+      z.string().transform((val, ctx) => {
+        const num = parseInt(val, 10);
+        if (!Number.isInteger(num)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Field '${fieldName}' must be an integer`
+          });
+          return z.NEVER;
+        }
+        return num;
+      })
+    ], {
+      errorMap: (issue, ctx) => {
+        if (issue.code === 'invalid_union') {
+          return { message: `Field '${fieldName}' must be an integer` };
+        }
+        return { message: issue.message || `Field '${fieldName}' must be an integer` };
+      }
+    });
+  }
+
+  /**
+   * Builds a Zod schema for boolean validation with string coercion.
+   * 
+   * @private
+   * @param {string} fieldName - Field name for error messages
+   * @param {Object} schema - Schema configuration
+   * @returns {z.ZodType} Zod boolean schema
+   */
+  static _buildBooleanSchema(fieldName, schema) {
+    return z.union([
+      z.boolean(),
+      z.string().transform((val, ctx) => {
+        if (val === 'true') return true;
+        if (val === 'false') return false;
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Field '${fieldName}' must be a boolean`
+        });
+        return z.NEVER;
+      })
+    ], {
+      errorMap: (issue, ctx) => {
+        if (issue.code === 'invalid_union') {
+          return { message: `Field '${fieldName}' must be a boolean` };
+        }
+        return { message: issue.message || `Field '${fieldName}' must be a boolean` };
+      }
+    });
+  }
+
+  /**
+   * Builds a Zod schema for date validation with string/Date coercion.
+   * 
+   * @private
+   * @param {string} fieldName - Field name for error messages
+   * @param {Object} schema - Schema configuration
+   * @returns {z.ZodType} Zod date schema
+   */
+  static _buildDateSchema(fieldName, schema) {
+    return z.union([
+      z.date().transform(date => {
+        if (isNaN(date.getTime())) {
+          throw new Error(`Field '${fieldName}' contains invalid date`);
+        }
+        return date.toISOString();
+      }),
+      z.string().refine((val) => {
+        const date = new Date(val);
+        if (isNaN(date.getTime())) {
+          return false;
+        }
+        return true;
+      }, { message: `Field '${fieldName}' must be a valid date string` })
+    ]);
+  }
+
+  /**
+   * Builds a Zod schema for email validation with normalization.
+   * 
+   * @private
+   * @param {string} fieldName - Field name for error messages
+   * @param {Object} schema - Schema configuration
+   * @returns {z.ZodType} Zod email schema
+   */
+  static _buildEmailSchema(fieldName, schema) {
+    return z.string()
+      .email({ message: `Field '${fieldName}' must be a valid email address` })
+      .transform(val => validator.normalizeEmail(val) || val);
+  }
+
+  /**
+   * Builds a Zod schema for URL validation with protocol requirement.
+   * 
+   * @private
+   * @param {string} fieldName - Field name for error messages
+   * @param {Object} schema - Schema configuration
+   * @returns {z.ZodType} Zod URL schema
+   */
+  static _buildUrlSchema(fieldName, schema) {
+    return z.string().url({ message: `Field '${fieldName}' must be a valid URL with protocol` })
+      .refine(val => validator.isURL(val, { require_protocol: true }), {
+        message: `Field '${fieldName}' must be a valid URL with protocol`
+      });
+  }
+
+  /**
+   * Builds a Zod schema for array validation.
+   * 
+   * @private
+   * @param {string} fieldName - Field name for error messages
+   * @param {Object} schema - Schema configuration
+   * @returns {z.ZodType} Zod array schema
+   */
+  static _buildArraySchema(fieldName, schema) {
+    return z.array(z.any(), {
+      invalid_type_error: `Field '${fieldName}' must be an array`,
+      required_error: `Required field '${fieldName}' is missing or null`
+    });
+  }
+
+  /**
+   * Builds a Zod schema for object validation.
+   * 
+   * @private
+   * @param {string} fieldName - Field name for error messages
+   * @param {Object} schema - Schema configuration
+   * @returns {z.ZodType} Zod object schema
+   */
+  static _buildObjectSchema(fieldName, schema) {
+    return z.object({}).passthrough()
+      .refine(val => val !== null && !Array.isArray(val), {
+        message: `Field '${fieldName}' must be an object`
+      });
+  }
+
+  /**
+   * Builds a Zod schema for ID validation with security checks.
+   * 
+   * @private
+   * @param {string} fieldName - Field name for error messages
+   * @param {Object} schema - Schema configuration
+   * @returns {z.ZodType} Zod ID schema
+   */
+  static _buildIdSchema(fieldName, schema) {
+    return z.union([
+      z.string(),
+      z.number().int()
+    ]).transform((val, ctx) => {
+      const idStrCheck = String(val);
+      if (idStrCheck.includes('../') || idStrCheck.includes('..\\')) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Field '${fieldName}' contains invalid path traversal patterns`
+        });
+        return z.NEVER;
+      }
+      
+      if (typeof val === 'number' && Number.isInteger(val)) {
+        return val;
+      }
+      
+      const idStr = String(val);
+      if (!this.PATTERNS.ID.test(idStr)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Field '${fieldName}' contains invalid ID format`
+        });
+        return z.NEVER;
+      }
+      return idStr;
+    });
+  }
+
+  /**
+   * Builds a fallback schema for unknown types.
+   * 
+   * @private
+   * @param {string} fieldName - Field name for error messages
+   * @param {Object} schema - Schema configuration
+   * @returns {z.ZodType} Zod any schema
+   */
+  static _buildAnySchema(fieldName, schema) {
+    return z.any();
   }
 
   /**
@@ -314,114 +425,171 @@ class InputValidator {
    * @private
    */
   static _applyValidationRules(zodSchema, schema, fieldName) {
-    // Apply validations using refine since we have union types
-    
-    // String-specific validations
+    // Apply type-specific validations
     if (schema.type === this.TYPES.STRING) {
-      // Length validation
-      if (schema.minLength !== undefined) {
-        zodSchema = zodSchema.refine(
-          (val) => val.length >= schema.minLength,
-          `Field '${fieldName}' must be at least ${schema.minLength} characters`
-        );
-      }
-      if (schema.maxLength !== undefined) {
-        zodSchema = zodSchema.refine(
-          (val) => val.length <= schema.maxLength,
-          `Field '${fieldName}' must be at most ${schema.maxLength} characters`
-        );
+      zodSchema = this._applyStringValidations(zodSchema, schema, fieldName);
+    }
+    
+    if (schema.type === this.TYPES.NUMBER || schema.type === this.TYPES.INTEGER) {
+      zodSchema = this._applyNumberValidations(zodSchema, schema, fieldName);
+    }
+    
+    if (schema.type === this.TYPES.ARRAY) {
+      zodSchema = this._applyArrayValidations(zodSchema, schema, fieldName);
+    }
+
+    // Apply common validations
+    zodSchema = this._applyCommonValidations(zodSchema, schema, fieldName);
+    
+    return zodSchema;
+  }
+
+  /**
+   * Applies string-specific validation rules including length, pattern, and sanitization.
+   * 
+   * @private
+   * @param {z.ZodType} zodSchema - Base Zod schema
+   * @param {Object} schema - Schema configuration
+   * @param {string} fieldName - Field name for error messages
+   * @returns {z.ZodType} Enhanced schema with string validations
+   */
+  static _applyStringValidations(zodSchema, schema, fieldName) {
+    // Length validation
+    if (schema.minLength !== undefined) {
+      zodSchema = zodSchema.refine(
+        (val) => val.length >= schema.minLength,
+        `Field '${fieldName}' must be at least ${schema.minLength} characters`
+      );
+    }
+    if (schema.maxLength !== undefined) {
+      zodSchema = zodSchema.refine(
+        (val) => val.length <= schema.maxLength,
+        `Field '${fieldName}' must be at most ${schema.maxLength} characters`
+      );
+    }
+
+    // Pattern validation
+    if (schema.pattern) {
+      const pattern = typeof schema.pattern === 'string' 
+        ? this.PATTERNS[schema.pattern] 
+        : schema.pattern;
+      zodSchema = zodSchema.refine(
+        (val) => pattern.test(val),
+        `Field '${fieldName}' has invalid format`
+      );
+    }
+
+    // Sanitization and trimming
+    zodSchema = zodSchema.transform((val, ctx) => {
+      // Trim whitespace by default
+      if (schema.trim !== false) {
+        val = val.trim();
       }
 
-      // Pattern validation
-      if (schema.pattern) {
-        const pattern = typeof schema.pattern === 'string' 
-          ? this.PATTERNS[schema.pattern] 
-          : schema.pattern;
-        zodSchema = zodSchema.refine(
-          (val) => pattern.test(val),
-          `Field '${fieldName}' has invalid format`
-        );
-      }
-
-      // Sanitization and trimming
-      zodSchema = zodSchema.transform((val, ctx) => {
-        // Trim whitespace by default
-        if (schema.trim !== false) {
-          val = val.trim();
+      // Sanitization for string values
+      if (schema.sanitize !== false) {
+        try {
+          val = this.sanitizeString(val, schema.sanitizeOptions);
+        } catch (error) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: error.message
+          });
+          return z.NEVER;
         }
+      }
+      return val;
+    });
+    
+    return zodSchema;
+  }
 
-        // Sanitization for string values
-        if (schema.sanitize !== false) {
+  /**
+   * Applies number-specific validation rules including min/max and positive constraints.
+   * 
+   * @private
+   * @param {z.ZodType} zodSchema - Base Zod schema
+   * @param {Object} schema - Schema configuration
+   * @param {string} fieldName - Field name for error messages
+   * @returns {z.ZodType} Enhanced schema with number validations
+   */
+  static _applyNumberValidations(zodSchema, schema, fieldName) {
+    if (schema.min !== undefined) {
+      zodSchema = zodSchema.refine(
+        (val) => val >= schema.min,
+        `Field '${fieldName}' must be at least ${schema.min}`
+      );
+    }
+    if (schema.max !== undefined) {
+      zodSchema = zodSchema.refine(
+        (val) => val <= schema.max,
+        `Field '${fieldName}' must be at most ${schema.max}`
+      );
+    }
+    if (schema.positive) {
+      zodSchema = zodSchema.refine(
+        (val) => val > 0,
+        `Field '${fieldName}' must be positive`
+      );
+    }
+    
+    return zodSchema;
+  }
+
+  /**
+   * Applies array-specific validation rules including length constraints and item validation.
+   * 
+   * @private
+   * @param {z.ZodType} zodSchema - Base Zod schema
+   * @param {Object} schema - Schema configuration
+   * @param {string} fieldName - Field name for error messages
+   * @returns {z.ZodType} Enhanced schema with array validations
+   */
+  static _applyArrayValidations(zodSchema, schema, fieldName) {
+    if (schema.minItems !== undefined) {
+      zodSchema = zodSchema.refine(
+        (val) => val.length >= schema.minItems,
+        `Field '${fieldName}' must have at least ${schema.minItems} items`
+      );
+    }
+    if (schema.maxItems !== undefined) {
+      zodSchema = zodSchema.refine(
+        (val) => val.length <= schema.maxItems,
+        `Field '${fieldName}' must have at most ${schema.maxItems} items`
+      );
+    }
+    
+    // Validate array items
+    if (schema.items) {
+      zodSchema = zodSchema.transform((arr, ctx) => {
+        return arr.map((item, index) => {
           try {
-            val = this.sanitizeString(val, schema.sanitizeOptions);
+            return this.validateValue(item, schema.items, `${fieldName}[${index}]`);
           } catch (error) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: error.message
+              message: error.message,
+              path: [index]
             });
-            return z.NEVER;
+            return item;
           }
-        }
-        return val;
+        });
       });
     }
+    
+    return zodSchema;
+  }
 
-    // Number validations
-    if (schema.type === this.TYPES.NUMBER || schema.type === this.TYPES.INTEGER) {
-      if (schema.min !== undefined) {
-        zodSchema = zodSchema.refine(
-          (val) => val >= schema.min,
-          `Field '${fieldName}' must be at least ${schema.min}`
-        );
-      }
-      if (schema.max !== undefined) {
-        zodSchema = zodSchema.refine(
-          (val) => val <= schema.max,
-          `Field '${fieldName}' must be at most ${schema.max}`
-        );
-      }
-      if (schema.positive) {
-        zodSchema = zodSchema.refine(
-          (val) => val > 0,
-          `Field '${fieldName}' must be positive`
-        );
-      }
-    }
-
-    // Array validations
-    if (schema.type === this.TYPES.ARRAY) {
-      if (schema.minItems !== undefined) {
-        zodSchema = zodSchema.refine(
-          (val) => val.length >= schema.minItems,
-          `Field '${fieldName}' must have at least ${schema.minItems} items`
-        );
-      }
-      if (schema.maxItems !== undefined) {
-        zodSchema = zodSchema.refine(
-          (val) => val.length <= schema.maxItems,
-          `Field '${fieldName}' must have at most ${schema.maxItems} items`
-        );
-      }
-      
-      // Validate array items
-      if (schema.items) {
-        zodSchema = zodSchema.transform((arr, ctx) => {
-          return arr.map((item, index) => {
-            try {
-              return this.validateValue(item, schema.items, `${fieldName}[${index}]`);
-            } catch (error) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: error.message,
-                path: [index]
-              });
-              return item;
-            }
-          });
-        });
-      }
-    }
-
+  /**
+   * Applies common validation rules that apply to all types (enum, custom validation).
+   * 
+   * @private
+   * @param {z.ZodType} zodSchema - Base Zod schema
+   * @param {Object} schema - Schema configuration
+   * @param {string} fieldName - Field name for error messages
+   * @returns {z.ZodType} Enhanced schema with common validations
+   */
+  static _applyCommonValidations(zodSchema, schema, fieldName) {
     // Enum validation
     if (schema.enum) {
       zodSchema = zodSchema.refine(
@@ -559,7 +727,11 @@ class InputValidator {
           return `Field '${fieldName}' must be a string, got ${issue.received}`;
         }
         if (issue.expected === 'number') {
-          return `Field '${fieldName}' must be a number`;
+          // Check if this is an integer field by looking at the schema
+          if (schema && schema.type === InputValidator.TYPES.INTEGER) {
+            return `Field '${fieldName}' must be an integer`;
+          }
+          return `Field '${fieldName}' must be a valid number`;
         }
         if (issue.expected === 'boolean') {
           return `Field '${fieldName}' must be a boolean`;
@@ -572,6 +744,11 @@ class InputValidator {
         }
         return issue.message;
       case 'invalid_union':
+        // Check if this is an integer field first - integer unions should always say "must be an integer"
+        if (schema && schema.type === InputValidator.TYPES.INTEGER) {
+          return `Field '${fieldName}' must be an integer`;
+        }
+        
         // Check if this union has a custom error message from errorMap
         if (issue.message && !issue.message.startsWith('Invalid input')) {
           return issue.message;
@@ -595,7 +772,7 @@ class InputValidator {
               return `Field '${fieldName}' must be an integer`;
             }
             if (expectedType === 'number') {
-              return `Field '${fieldName}' must be a number`;
+              return `Field '${fieldName}' must be a valid number`;
             }
             if (expectedType === 'boolean') {
               return `Field '${fieldName}' must be a boolean`;

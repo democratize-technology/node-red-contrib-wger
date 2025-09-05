@@ -90,8 +90,9 @@ class RetryPolicy {
    */
   _shouldRetryError(error) {
     // Check for HTTP response errors with retryable status codes
-    if (error.status && typeof error.status === 'number') {
-      return this.retryableStatusCodes.includes(error.status);
+    const statusCode = error.status || (error.response && error.response.status);
+    if (statusCode && typeof statusCode === 'number') {
+      return this.retryableStatusCodes.includes(statusCode);
     }
 
     // Check for network/connection errors
@@ -210,8 +211,8 @@ class RetryPolicy {
     ];
     
     return networkErrorCodes.includes(error.code) || 
-           error.message.includes('Network Error') ||
-           error.message.includes('No response received from server');
+           error.message?.includes('Network Error') ||
+           error.message?.includes('No response received from server');
   }
 
   /**
@@ -225,8 +226,8 @@ class RetryPolicy {
     const timeoutErrorCodes = ['ETIMEDOUT', 'TIMEOUT'];
     
     return timeoutErrorCodes.includes(error.code) ||
-           error.message.includes('timeout') ||
-           error.message.includes('Request timed out');
+           error.message?.includes('timeout') ||
+           error.message?.includes('Request timed out');
   }
 
   /**

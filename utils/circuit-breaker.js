@@ -6,6 +6,7 @@
  */
 
 const { handleAll, circuitBreaker, ConsecutiveBreaker } = require('cockatiel');
+const timeProvider = require('./time-provider').default;
 
 /**
  * Configuration options for circuit breaker behavior.
@@ -14,6 +15,7 @@ const { handleAll, circuitBreaker, ConsecutiveBreaker } = require('cockatiel');
  * @property {number} [failureThreshold=5] - Number of consecutive failures before opening circuit
  * @property {number} [resetTimeoutMs=60000] - Time in milliseconds to wait before attempting reset
  * @property {number} [halfOpenMaxCalls=3] - Maximum number of calls to allow in half-open state
+ * @property {Object} [timeProvider] - Time provider for dependency injection (defaults to system time)
  */
 
 /**
@@ -55,6 +57,7 @@ class CircuitBreaker {
     this.failureThreshold = config.failureThreshold !== undefined ? config.failureThreshold : 5;
     this.resetTimeoutMs = config.resetTimeoutMs || 60000;
     this.halfOpenMaxCalls = config.halfOpenMaxCalls || 3;
+    this.timeProvider = config.timeProvider || timeProvider;
     
     // Backward compatibility state tracking
     this.state = CircuitBreakerState.CLOSED;
@@ -97,7 +100,7 @@ class CircuitBreaker {
 
     this._policy.onBreak(() => {
       this.state = CircuitBreakerState.OPEN;
-      this.nextAttemptTime = Date.now() + this.resetTimeoutMs;
+      this.nextAttemptTime = this.timeProvider.now() + this.resetTimeoutMs;
     });
   }
 
@@ -110,7 +113,7 @@ class CircuitBreaker {
     // Mirror the Cockatiel state to our state enum for compatibility
     if (this.failureCount >= this.failureThreshold && this.failureThreshold > 0) {
       this.state = CircuitBreakerState.OPEN;
-      this.nextAttemptTime = Date.now() + this.resetTimeoutMs;
+      this.nextAttemptTime = this.timeProvider.now() + this.resetTimeoutMs;
     } else if (this.failureCount === 0) {
       this.state = CircuitBreakerState.CLOSED;
       this.nextAttemptTime = 0;
@@ -154,7 +157,7 @@ class CircuitBreaker {
    * }
    */
   canExecute() {
-    const now = Date.now();
+    const now = this.timeProvider.now();
     
     switch (this.state) {
     case CircuitBreakerState.CLOSED:
@@ -267,7 +270,7 @@ class CircuitBreaker {
    */
   _transitionToOpen() {
     this.state = CircuitBreakerState.OPEN;
-    this.nextAttemptTime = Date.now() + this.resetTimeoutMs;
+    this.nextAttemptTime = this.timeProvider.now() + this.resetTimeoutMs;
     this.halfOpenCallCount = 0;
   }
 

@@ -6,6 +6,8 @@
  */
 
 const { handleWhen, retry, ExponentialBackoff } = require('cockatiel');
+const timeProvider = require('./time-provider').default;
+const randomProvider = require('./random-provider').default;
 
 /**
  * Configuration options for retry policy behavior.
@@ -18,6 +20,8 @@ const { handleWhen, retry, ExponentialBackoff } = require('cockatiel');
  * @property {Array<number>} [retryableStatusCodes=[429, 502, 503, 504]] - HTTP status codes that should trigger retries
  * @property {boolean} [retryOnNetworkError=true] - Whether to retry on network/connection errors
  * @property {boolean} [retryOnTimeout=true] - Whether to retry on timeout errors
+ * @property {Object} [timeProvider] - Time provider for dependency injection (defaults to system time)
+ * @property {Object} [randomProvider] - Random provider for dependency injection (defaults to Math.random)
  */
 
 /**
@@ -53,6 +57,8 @@ class RetryPolicy {
     this.retryableStatusCodes = config.retryableStatusCodes || [429, 502, 503, 504];
     this.retryOnNetworkError = config.retryOnNetworkError !== false;
     this.retryOnTimeout = config.retryOnTimeout !== false;
+    this.timeProvider = config.timeProvider || timeProvider;
+    this.randomProvider = config.randomProvider || randomProvider;
 
     // Create Cockatiel policy with equivalent configuration
     this._createCockatielPolicy();
@@ -166,7 +172,7 @@ class RetryPolicy {
     
     // Apply jitter to prevent thundering herd (maintain exact same jitter algorithm)
     const jitterRange = cappedDelay * this.jitterRatio;
-    const jitter = (Math.random() * 2 - 1) * jitterRange; // Random between -jitterRange and +jitterRange
+    const jitter = (this.randomProvider.random() * 2 - 1) * jitterRange; // Random between -jitterRange and +jitterRange
     
     return Math.max(0, Math.round(cappedDelay + jitter));
   }
@@ -183,7 +189,7 @@ class RetryPolicy {
    */
   async delay(attemptNumber) {
     const delayMs = this.getRetryDelay(attemptNumber);
-    return new Promise(resolve => setTimeout(resolve, delayMs));
+    return this.timeProvider.delay(delayMs);
   }
 
   /**

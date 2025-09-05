@@ -11,6 +11,7 @@ const { wrap } = require('cockatiel');
 const { API, STATUS } = require('./constants');
 const RetryPolicy = require('./retry-policy');
 const { CircuitBreaker } = require('./circuit-breaker');
+const timeProvider = require('./time-provider').default;
 
 /**
  * HTTP client for interacting with the wger fitness API.
@@ -44,16 +45,24 @@ class WgerApiClient {
    * @param {Object} [resilience={}] - Resilience configuration for retry and circuit breaker
    * @param {Object} [resilience.retry] - Retry policy configuration
    * @param {Object} [resilience.circuitBreaker] - Circuit breaker configuration
+   * @param {Object} [resilience.timeProvider] - Time provider for dependency injection
    */
   constructor(apiUrl, authHeader, resilience = {}) {
     this.apiUrl = apiUrl;
     this.authHeader = authHeader;
+    this.timeProvider = resilience.timeProvider || timeProvider;
     
-    // Initialize retry policy if configuration provided
-    this.retryPolicy = resilience.retry ? new RetryPolicy(resilience.retry) : null;
+    // Initialize retry policy if configuration provided (pass timeProvider for consistency)
+    this.retryPolicy = resilience.retry ? new RetryPolicy({
+      ...resilience.retry,
+      timeProvider: this.timeProvider
+    }) : null;
     
-    // Initialize circuit breaker if configuration provided
-    this.circuitBreaker = resilience.circuitBreaker ? new CircuitBreaker(resilience.circuitBreaker) : null;
+    // Initialize circuit breaker if configuration provided (pass timeProvider for consistency)
+    this.circuitBreaker = resilience.circuitBreaker ? new CircuitBreaker({
+      ...resilience.circuitBreaker,
+      timeProvider: this.timeProvider
+    }) : null;
     
     // Create combined Cockatiel policy for efficient execution
     this._createCombinedPolicy();
@@ -200,7 +209,7 @@ class WgerApiClient {
       
       // Clear timeout if request completed
       if (timeoutId) {
-        clearTimeout(timeoutId);
+        this.timeProvider.clearTimeout(timeoutId);
       }
       
       // Handle non-2xx responses
@@ -221,7 +230,7 @@ class WgerApiClient {
     } catch (error) {
       // Clear timeout if error occurred
       if (timeoutId) {
-        clearTimeout(timeoutId);
+        this.timeProvider.clearTimeout(timeoutId);
       }
       
       // Handle and transform various error types
@@ -266,7 +275,7 @@ class WgerApiClient {
     let timeoutId = null;
     
     if (timeout && timeout > 0) {
-      timeoutId = setTimeout(() => {
+      timeoutId = this.timeProvider.setTimeout(() => {
         controller.abort();
       }, timeout);
     }

@@ -662,20 +662,24 @@ class InputValidator {
     const validated = {};
     
     // First, create a clean payload that excludes prototype pollution attempts
-    const cleanPayload = {};
-    for (const [key, value] of Object.entries(payload)) {
-      // Silently exclude prototype pollution attempts
-      if (key !== '__proto__' && key !== 'constructor' && key !== 'prototype') {
-        cleanPayload[key] = value;
-      }
-    }
+    // Create clean payload immutably, excluding prototype pollution attempts
+    const cleanPayload = Object.fromEntries(
+      Object.entries(payload).filter(([key]) => 
+        key !== '__proto__' && key !== 'constructor' && key !== 'prototype'
+      )
+    );
 
-    // Validate defined schema fields from clean payload
-    for (const [field, fieldSchema] of Object.entries(schema)) {
-      if (!field.startsWith('_')) { // Skip schema configuration fields
-        validated[field] = this.validateValue(cleanPayload[field], fieldSchema, field);
-      }
-    }
+    // Validate defined schema fields from clean payload immutably
+    const validatedFields = Object.fromEntries(
+      Object.entries(schema)
+        .filter(([field]) => !field.startsWith('_')) // Skip schema configuration fields
+        .map(([field, fieldSchema]) => [
+          field, 
+          this.validateValue(cleanPayload[field], fieldSchema, field)
+        ])
+    );
+    
+    Object.assign(validated, validatedFields);
 
     // Check for unexpected fields (strict mode) using clean payload
     if (schema._strict !== false) {

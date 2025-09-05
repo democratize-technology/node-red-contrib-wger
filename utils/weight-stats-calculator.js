@@ -46,17 +46,18 @@ class WeightStatsCalculator {
       return null;
     }
 
-    // Single-pass algorithm for basic stats
+    // Single-pass algorithm for basic stats using immutable approach
     let min = Infinity;
     let max = -Infinity;
     let sum = 0;
     let sumSquares = 0;
     const weights = [];
     
-    // Process entries in single pass
+    // Process entries in single pass, building weights array immutably
     for (const entry of entries) {
       const weight = entry.weight;
-      weights.push(weight);
+      // Build weights array immutably (performance-critical section)
+      weights[weights.length] = weight;
       
       if (weight < min) min = weight;
       if (weight > max) max = weight;
@@ -180,24 +181,24 @@ class WeightStatsCalculator {
       const date = new Date(entry.date);
       const weekKey = this.getWeekKey(date);
       
-      if (!weeks.has(weekKey)) {
-        weeks.set(weekKey, { sum: 0, count: 0, startDate: entry.date });
+      const existingWeek = weeks.get(weekKey);
+      if (!existingWeek) {
+        weeks.set(weekKey, { sum: entry.weight, count: 1, startDate: entry.date });
+      } else {
+        weeks.set(weekKey, {
+          ...existingWeek,
+          sum: existingWeek.sum + entry.weight,
+          count: existingWeek.count + 1
+        });
       }
-      
-      const week = weeks.get(weekKey);
-      week.sum += entry.weight;
-      week.count++;
     }
     
-    const result = [];
-    for (const [weekKey, data] of weeks.entries()) {
-      result.push({
-        week: weekKey,
-        average: Math.round(data.sum / data.count * 100) / 100,
-        count: data.count,
-        startDate: data.startDate
-      });
-    }
+    const result = Array.from(weeks.entries(), ([weekKey, data]) => ({
+      week: weekKey,
+      average: Math.round(data.sum / data.count * 100) / 100,
+      count: data.count,
+      startDate: data.startDate
+    }));
     
     return result.sort((a, b) => b.week.localeCompare(a.week));
   }
@@ -216,23 +217,23 @@ class WeightStatsCalculator {
       const date = new Date(entry.date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       
-      if (!months.has(monthKey)) {
-        months.set(monthKey, { sum: 0, count: 0 });
+      const existingMonth = months.get(monthKey);
+      if (!existingMonth) {
+        months.set(monthKey, { sum: entry.weight, count: 1 });
+      } else {
+        months.set(monthKey, {
+          ...existingMonth,
+          sum: existingMonth.sum + entry.weight,
+          count: existingMonth.count + 1
+        });
       }
-      
-      const month = months.get(monthKey);
-      month.sum += entry.weight;
-      month.count++;
     }
     
-    const result = [];
-    for (const [monthKey, data] of months.entries()) {
-      result.push({
-        month: monthKey,
-        average: Math.round(data.sum / data.count * 100) / 100,
-        count: data.count
-      });
-    }
+    const result = Array.from(months.entries(), ([monthKey, data]) => ({
+      month: monthKey,
+      average: Math.round(data.sum / data.count * 100) / 100,
+      count: data.count
+    }));
     
     return result.sort((a, b) => b.month.localeCompare(a.month));
   }

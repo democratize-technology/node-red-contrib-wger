@@ -15,10 +15,15 @@ const ipaddr = require('ipaddr.js');
  * @param {boolean} success - Whether validation passed
  * @param {string[]} errors - Array of error messages
  * @param {string[]} warnings - Array of warning messages
+ * @param {Object} data - Optional data to include in result
  * @returns {Object} Validation result
  */
-function createValidationResult(success, errors = [], warnings = []) {
-  return { success, errors: [...errors], warnings: [...warnings] };
+function createValidationResult(success, errors = [], warnings = [], data = null) {
+  const result = { success, errors: [...errors], warnings: [...warnings] };
+  if (data !== null) {
+    result.data = data;
+  }
+  return result;
 }
 
 /**
@@ -28,11 +33,19 @@ function createValidationResult(success, errors = [], warnings = []) {
  * @returns {Object} Combined validation result
  */
 function combineValidationResults(results) {
-  return {
+  const combined = {
     success: results.every(r => r.success),
     errors: results.flatMap(r => r.errors || []),
     warnings: results.flatMap(r => r.warnings || [])
   };
+  
+  // Merge data objects from all results
+  const dataObjects = results.filter(r => r.data).map(r => r.data);
+  if (dataObjects.length > 0) {
+    combined.data = Object.assign({}, ...dataObjects);
+  }
+  
+  return combined;
 }
 
 /**
@@ -337,6 +350,143 @@ async function resolveHostname(hostname) {
 }
 
 /**
+ * Core validation pipeline for async URL validation
+ * @private
+ * @param {string} urlString - The URL string to validate
+ * @param {Object} options - Validation options
+ * @returns {Promise<Object>} Combined validation result with normalizedUrl
+ */
+async function _performCoreValidation(urlString, options = {}) {
+  const {
+    isDevelopment = false,
+    skipDnsResolution = false,
+    additionalWhitelist = []
+  } = options;
+
+  // Step 1: Basic validation
+  const basicValidation = _performBasicUrlValidation(urlString);
+  if (!basicValidation.success) {
+    return { ...basicValidation, normalizedUrl: null };
+  }
+  
+  const { urlObj } = basicValidation.data;
+  const normalizedUrl = urlObj.href;
+
+  // Step 2: Cloud metadata check
+  const metadataCheck = _checkCloudMetadataEndpoints(urlObj.hostname, isDevelopment);
+  
+  // Step 3: Localhost checks
+  const localhostCheck = _performLocalhostChecks(urlObj, isDevelopment);
+  
+  // Step 4: IP/Hostname validation
+  const cleanHostname = urlObj.hostname.startsWith('[') && urlObj.hostname.endsWith(']') 
+    ? urlObj.hostname.slice(1, -1) 
+    : urlObj.hostname;
+    
+  let addressValidation;
+  if (isValidIpAddress(cleanHostname)) {
+    addressValidation = _validateIpAddress(cleanHostname, isDevelopment);
+  } else {
+    addressValidation = await _validateHostname(
+      urlObj.hostname, 
+      additionalWhitelist, 
+      isDevelopment, 
+      skipDnsResolution
+    );
+  }
+  
+  // Step 5: Security checks
+  const securityCheck = _performSecurityChecks(urlObj);
+  
+  // Combine all results
+  const allResults = [basicValidation, metadataCheck, localhostCheck, addressValidation, securityCheck];
+  const combinedResult = combineValidationResults(allResults);
+  
+  return { ...combinedResult, normalizedUrl };
+}
+
+/**
+ * Core validation pipeline for synchronous URL validation
+ * @private
+ * @param {string} urlString - The URL string to validate
+ * @param {Object} options - Validation options
+ * @returns {Object} Combined validation result with normalizedUrl
+ */
+function _performCoreValidationSync(urlString, options = {}) {
+  const {
+    isDevelopment = false,
+    additionalWhitelist = []
+  } = options;
+
+  // Step 1: Basic validation
+  const basicValidation = _performBasicUrlValidation(urlString);
+  if (!basicValidation.success) {
+    return { ...basicValidation, normalizedUrl: null };
+  }
+  
+  const { urlObj } = basicValidation.data;
+  const normalizedUrl = urlObj.href;
+
+  // Step 2: Cloud metadata check
+  const metadataCheck = _checkCloudMetadataEndpoints(urlObj.hostname, isDevelopment);
+  
+  // Step 3: Localhost checks
+  const localhostCheck = _performLocalhostChecks(urlObj, isDevelopment);
+  
+  // Step 4: IP/Hostname validation (sync version - no DNS resolution)
+  const cleanHostname = urlObj.hostname.startsWith('[') && urlObj.hostname.endsWith(']') 
+    ? urlObj.hostname.slice(1, -1) 
+    : urlObj.hostname;
+    
+  let addressValidation;
+  if (isValidIpAddress(cleanHostname)) {
+    addressValidation = _validateIpAddress(cleanHostname, isDevelopment);
+  } else {
+    // Sync hostname validation (simplified version without DNS)
+    addressValidation = _validateHostnameSync(urlObj.hostname, additionalWhitelist, isDevelopment);
+  }
+  
+  // Step 5: Security checks
+  const securityCheck = _performSecurityChecks(urlObj);
+  
+  // Combine all results
+  const allResults = [basicValidation, metadataCheck, localhostCheck, addressValidation, securityCheck];
+  const combinedResult = combineValidationResults(allResults);
+  
+  return { ...combinedResult, normalizedUrl };
+}
+
+/**
+ * Synchronous hostname validation without DNS resolution
+ * @private
+ * @param {string} hostname - The hostname to validate
+ * @param {string[]} additionalWhitelist - Additional domains to whitelist
+ * @param {boolean} isDevelopment - Whether in development mode
+ * @returns {Object} Validation result with success flag, errors, and warnings
+ */
+function _validateHostnameSync(hostname, additionalWhitelist, isDevelopment) {
+  const warnings = [];
+  
+  // Check against whitelist if any patterns are configured
+  const allWhitelist = [...SECURITY_CONFIG.WHITELISTED_DOMAINS, ...additionalWhitelist];
+  const hasWhitelist = allWhitelist.length > 0;
+  const isWhitelisted = !hasWhitelist || allWhitelist.some(pattern => 
+    matchesWildcardDomain(hostname, pattern)
+  );
+  
+  // Only enforce whitelist if patterns are configured and not in development
+  if (!isWhitelisted && !isDevelopment && hasWhitelist) {
+    return createValidationResult(false, [`Domain not whitelisted: ${hostname}. Allowed domains: ${allWhitelist.join(', ')}`]);
+  }
+  
+  if (!isWhitelisted && isDevelopment && hasWhitelist) {
+    warnings.push(`Warning: Using non-whitelisted domain in development mode: ${hostname}`);
+  }
+  
+  return createValidationResult(true, [], warnings);
+}
+
+/**
  * Main URL validation function with SSRF protection
  * @param {string} urlString - The URL to validate
  * @param {Object} options - Validation options
@@ -346,73 +496,8 @@ async function resolveHostname(hostname) {
  * @returns {Promise<Object>} Validation result object
  */
 async function validateUrl(urlString, options = {}) {
-  const {
-    isDevelopment = false,
-    skipDnsResolution = false,
-    additionalWhitelist = []
-  } = options;
-  
-  const result = {
-    valid: false,
-    url: urlString,
-    errors: [],
-    warnings: [],
-    normalizedUrl: null
-  };
-  
-  // Perform basic URL validation
-  const basicValidation = _performBasicUrlValidation(urlString, result);
-  if (!basicValidation.success) {
-    return result;
-  }
-  const { urlObj } = basicValidation;
-  result.normalizedUrl = urlObj.href;
-  
-  // Check for cloud metadata endpoints
-  const metadataCheck = _checkCloudMetadataEndpoints(urlObj.hostname, isDevelopment, result);
-  if (!metadataCheck.success) {
-    return result;
-  }
-  
-  // Check for localhost/loopback addresses
-  const localhostCheck = _performLocalhostChecks(urlObj, isDevelopment, result);
-  if (!localhostCheck.success) {
-    return result;
-  }
-  
-  // Handle IPv6 addresses in bracket notation
-  const cleanHostname = urlObj.hostname.startsWith('[') && urlObj.hostname.endsWith(']') 
-    ? urlObj.hostname.slice(1, -1) 
-    : urlObj.hostname;
-  
-  // Validate IP addresses or hostnames
-  if (isValidIpAddress(cleanHostname)) {
-    const ipValidation = _validateIpAddress(cleanHostname, isDevelopment, result);
-    if (!ipValidation.success) {
-      return result;
-    }
-  } else {
-    const hostnameValidation = await _validateHostname(
-      urlObj.hostname, 
-      additionalWhitelist, 
-      isDevelopment, 
-      skipDnsResolution, 
-      result
-    );
-    if (!hostnameValidation.success) {
-      return result;
-    }
-  }
-  
-  // Perform final security checks
-  const securityCheck = _performSecurityChecks(urlObj, result);
-  if (!securityCheck.success) {
-    return result;
-  }
-  
-  // If we've made it here, the URL is valid
-  result.valid = true;
-  return result;
+  const validationResult = await _performCoreValidation(urlString, options);
+  return buildFinalResult(urlString, validationResult.normalizedUrl, validationResult);
 }
 
 /**
@@ -420,21 +505,18 @@ async function validateUrl(urlString, options = {}) {
  * 
  * @private
  * @param {string} urlString - The URL string to validate
- * @param {Object} result - Result object to populate with errors
- * @returns {Object} Validation result with success flag and parsed URL
+ * @returns {Object} Validation result with success flag, errors, warnings, and parsed URL data
  */
-function _performBasicUrlValidation(urlString, result) {
+function _performBasicUrlValidation(urlString) {
   // Basic validation - check if URL is provided
   if (!urlString || typeof urlString !== 'string') {
-    result.errors.push('URL is required and must be a string');
-    return { success: false };
+    return createValidationResult(false, ['URL is required and must be a string']);
   }
   
   // Trim whitespace
   const trimmedUrl = urlString.trim();
   if (!trimmedUrl) {
-    result.errors.push('URL cannot be empty');
-    return { success: false };
+    return createValidationResult(false, ['URL cannot be empty']);
   }
   
   // Parse the URL
@@ -442,17 +524,15 @@ function _performBasicUrlValidation(urlString, result) {
   try {
     urlObj = new URL(trimmedUrl);
   } catch (error) {
-    result.errors.push(`Invalid URL format: ${error.message}`);
-    return { success: false };
+    return createValidationResult(false, [`Invalid URL format: ${error.message}`]);
   }
   
   // Check protocol
   if (!SECURITY_CONFIG.ALLOWED_PROTOCOLS.includes(urlObj.protocol)) {
-    result.errors.push(`Protocol not allowed: ${urlObj.protocol}. Only ${SECURITY_CONFIG.ALLOWED_PROTOCOLS.join(', ')} are permitted`);
-    return { success: false };
+    return createValidationResult(false, [`Protocol not allowed: ${urlObj.protocol}. Only ${SECURITY_CONFIG.ALLOWED_PROTOCOLS.join(', ')} are permitted`]);
   }
   
-  return { success: true, urlObj, trimmedUrl };
+  return createValidationResult(true, [], [], { urlObj, trimmedUrl });
 }
 
 /**
@@ -461,15 +541,13 @@ function _performBasicUrlValidation(urlString, result) {
  * @private
  * @param {string} hostname - The hostname to check
  * @param {boolean} isDevelopment - Whether in development mode
- * @param {Object} result - Result object to populate with errors
- * @returns {Object} Check result with success flag
+ * @returns {Object} Validation result with success flag, errors, and warnings
  */
-function _checkCloudMetadataEndpoints(hostname, isDevelopment, result) {
+function _checkCloudMetadataEndpoints(hostname, isDevelopment) {
   if (isCloudMetadataEndpoint(hostname) && !isDevelopment) {
-    result.errors.push(`Blocked cloud metadata endpoint: ${hostname}`);
-    return { success: false };
+    return createValidationResult(false, [`Blocked cloud metadata endpoint: ${hostname}`]);
   }
-  return { success: true };
+  return createValidationResult(true);
 }
 
 /**
@@ -478,22 +556,22 @@ function _checkCloudMetadataEndpoints(hostname, isDevelopment, result) {
  * @private
  * @param {URL} urlObj - Parsed URL object
  * @param {boolean} isDevelopment - Whether in development mode
- * @param {Object} result - Result object to populate with errors
- * @returns {Object} Check result with success flag
+ * @returns {Object} Validation result with success flag, errors, and warnings
  */
-function _performLocalhostChecks(urlObj, isDevelopment, result) {
+function _performLocalhostChecks(urlObj, isDevelopment) {
   const localhostCheck = isLocalhost(urlObj, isDevelopment);
   if (localhostCheck.isLocalhost) {
+    let errorMessage;
     if (localhostCheck.reason === 'loopback address') {
-      result.errors.push('Loopback address not allowed in production mode');
+      errorMessage = 'Loopback address not allowed in production mode';
     } else if (localhostCheck.reason === 'IPv6 localhost') {
-      result.errors.push('IPv6 localhost address not allowed in production mode');
+      errorMessage = 'IPv6 localhost address not allowed in production mode';
     } else {
-      result.errors.push('Localhost/loopback addresses are not allowed in production mode');
+      errorMessage = 'Localhost/loopback addresses are not allowed in production mode';
     }
-    return { success: false };
+    return createValidationResult(false, [errorMessage]);
   }
-  return { success: true };
+  return createValidationResult(true);
 }
 
 /**
@@ -502,19 +580,17 @@ function _performLocalhostChecks(urlObj, isDevelopment, result) {
  * @private
  * @param {string} ipAddress - The IP address to validate
  * @param {boolean} isDevelopment - Whether in development mode
- * @param {Object} result - Result object to populate with errors/warnings
- * @returns {Object} Validation result with success flag
+ * @returns {Object} Validation result with success flag, errors, and warnings
  */
-function _validateIpAddress(ipAddress, isDevelopment, result) {
+function _validateIpAddress(ipAddress, isDevelopment) {
   const ipCheck = checkIpRestrictions(ipAddress);
   if (ipCheck.blocked && !isDevelopment) {
-    result.errors.push(`Blocked IP address: ${ipCheck.reason}`);
-    return { success: false };
+    return createValidationResult(false, [`Blocked IP address: ${ipCheck.reason}`]);
   }
   if (ipCheck.blocked && isDevelopment) {
-    result.warnings.push(`Warning: Using restricted IP in development mode: ${ipCheck.reason}`);
+    return createValidationResult(true, [], [`Warning: Using restricted IP in development mode: ${ipCheck.reason}`]);
   }
-  return { success: true };
+  return createValidationResult(true);
 }
 
 /**
@@ -525,10 +601,12 @@ function _validateIpAddress(ipAddress, isDevelopment, result) {
  * @param {string[]} additionalWhitelist - Additional domains to whitelist
  * @param {boolean} isDevelopment - Whether in development mode
  * @param {boolean} skipDnsResolution - Whether to skip DNS resolution
- * @param {Object} result - Result object to populate with errors/warnings
- * @returns {Promise<Object>} Validation result with success flag
+ * @returns {Promise<Object>} Validation result with success flag, errors, and warnings
  */
-async function _validateHostname(hostname, additionalWhitelist, isDevelopment, skipDnsResolution, result) {
+async function _validateHostname(hostname, additionalWhitelist, isDevelopment, skipDnsResolution) {
+  const errors = [];
+  const warnings = [];
+  
   // Check against whitelist if any patterns are configured
   const allWhitelist = [...SECURITY_CONFIG.WHITELISTED_DOMAINS, ...additionalWhitelist];
   const hasWhitelist = allWhitelist.length > 0;
@@ -538,12 +616,12 @@ async function _validateHostname(hostname, additionalWhitelist, isDevelopment, s
   
   // Only enforce whitelist if patterns are configured and not in development
   if (!isWhitelisted && !isDevelopment && hasWhitelist) {
-    result.errors.push(`Domain not whitelisted: ${hostname}. Allowed domains: ${allWhitelist.join(', ')}`);
-    return { success: false };
+    errors.push(`Domain not whitelisted: ${hostname}. Allowed domains: ${allWhitelist.join(', ')}`);
+    return createValidationResult(false, errors, warnings);
   }
   
   if (!isWhitelisted && isDevelopment && hasWhitelist) {
-    result.warnings.push(`Warning: Using non-whitelisted domain in development mode: ${hostname}`);
+    warnings.push(`Warning: Using non-whitelisted domain in development mode: ${hostname}`);
   }
   
   // Resolve hostname to IP and check if it points to private/restricted IPs
@@ -552,28 +630,28 @@ async function _validateHostname(hostname, additionalWhitelist, isDevelopment, s
       const ips = await resolveHostname(hostname);
       
       if (ips.length === 0) {
-        result.warnings.push(`DNS resolution warning: Could not resolve hostname: ${hostname}`);
+        warnings.push(`DNS resolution warning: Could not resolve hostname: ${hostname}`);
       } else {
         for (const ip of ips) {
           // Check both cloud metadata and general restrictions
           if (SECURITY_CONFIG.CLOUD_METADATA_ENDPOINTS.includes(ip)) {
-            result.errors.push(`Domain ${hostname} resolves to cloud metadata endpoint ${ip}`);
-            return { success: false };
+            errors.push(`Domain ${hostname} resolves to cloud metadata endpoint ${ip}`);
+            return createValidationResult(false, errors, warnings);
           }
           
           const ipCheck = checkIpRestrictions(ip);
           if (ipCheck.blocked) {
-            result.errors.push(`Domain ${hostname} resolves to blocked IP ${ip}: ${ipCheck.reason}`);
-            return { success: false };
+            errors.push(`Domain ${hostname} resolves to blocked IP ${ip}: ${ipCheck.reason}`);
+            return createValidationResult(false, errors, warnings);
           }
         }
       }
     } catch (error) {
-      result.warnings.push(`DNS resolution warning: ${error.message}`);
+      warnings.push(`DNS resolution warning: ${error.message}`);
     }
   }
   
-  return { success: true };
+  return createValidationResult(true, errors, warnings);
 }
 
 /**
@@ -581,14 +659,16 @@ async function _validateHostname(hostname, additionalWhitelist, isDevelopment, s
  * 
  * @private
  * @param {URL} urlObj - Parsed URL object
- * @param {Object} result - Result object to populate with errors/warnings
- * @returns {Object} Check result with success flag
+ * @returns {Object} Validation result with success flag, errors, and warnings
  */
-function _performSecurityChecks(urlObj, result) {
+function _performSecurityChecks(urlObj) {
+  const errors = [];
+  const warnings = [];
+  
   // Check for suspicious patterns
   if (urlObj.username || urlObj.password) {
-    result.errors.push('URLs with embedded credentials are not allowed');
-    return { success: false };
+    errors.push('URLs with embedded credentials are not allowed');
+    return createValidationResult(false, errors, warnings);
   }
   
   // Check for unusual ports
@@ -596,8 +676,8 @@ function _performSecurityChecks(urlObj, result) {
   if (port) {
     const portNum = parseInt(port, 10);
     if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
-      result.errors.push(`Invalid port number: ${port}`);
-      return { success: false };
+      errors.push(`Invalid port number: ${port}`);
+      return createValidationResult(false, errors, warnings);
     }
     
     // Warn about non-standard ports
@@ -607,11 +687,11 @@ function _performSecurityChecks(urlObj, result) {
     };
     
     if (!standardPorts[urlObj.protocol].includes(portNum)) {
-      result.warnings.push(`Non-standard port for ${urlObj.protocol.slice(0, -1)}: ${port}`);
+      warnings.push(`Non-standard port for ${urlObj.protocol.slice(0, -1)}: ${port}`);
     }
   }
   
-  return { success: true };
+  return createValidationResult(true, errors, warnings);
 }
 
 /**
@@ -621,98 +701,10 @@ function _performSecurityChecks(urlObj, result) {
  * @returns {Object} Validation result object
  */
 function validateUrlSync(urlString, options = {}) {
-  // Force skip DNS resolution for sync version (options unused in this implementation)
-  const _syncOptions = { ...options, skipDnsResolution: true };
-  
-  // Create a fake async wrapper that returns immediately
-  const result = {
-    valid: false,
-    url: urlString,
-    errors: [],
-    warnings: [],
-    normalizedUrl: null
-  };
-  
-  // Since we're skipping DNS, perform synchronous validation only
-  
-  // For now, perform basic synchronous checks
-  if (!urlString || typeof urlString !== 'string') {
-    result.errors.push('URL is required and must be a string');
-    return result;
-  }
-  
-  const trimmedUrl = urlString.trim();
-  if (!trimmedUrl) {
-    result.errors.push('URL cannot be empty');
-    return result;
-  }
-  
-  let urlObj;
-  try {
-    urlObj = new URL(trimmedUrl);
-    result.normalizedUrl = urlObj.href;
-  } catch (error) {
-    result.errors.push(`Invalid URL format: ${error.message}`);
-    return result;
-  }
-  
-  if (!SECURITY_CONFIG.ALLOWED_PROTOCOLS.includes(urlObj.protocol)) {
-    result.errors.push(`Protocol not allowed: ${urlObj.protocol}. Only ${SECURITY_CONFIG.ALLOWED_PROTOCOLS.join(', ')} are permitted`);
-    return result;
-  }
-  
-  const hostname = urlObj.hostname;
-  const { isDevelopment = false, additionalWhitelist = [] } = options;
-  
-  // Check for cloud metadata endpoints
-  if (isCloudMetadataEndpoint(hostname) && !isDevelopment) {
-    result.errors.push(`Blocked cloud metadata endpoint: ${hostname}`);
-    return result;
-  }
-  
-  const localhostCheck = isLocalhost(urlObj, isDevelopment);
-  if (localhostCheck.isLocalhost) {
-    if (localhostCheck.reason === 'loopback address') {
-      result.errors.push('Loopback address not allowed in production mode');
-    } else if (localhostCheck.reason === 'IPv6 localhost') {
-      result.errors.push('IPv6 localhost address not allowed in production mode');
-    } else {
-      result.errors.push('Localhost/loopback addresses are not allowed in production mode');
-    }
-    return result;
-  }
-  
-  // Handle IPv6 addresses in bracket notation
-  const cleanHostname = hostname.startsWith('[') && hostname.endsWith(']') 
-    ? hostname.slice(1, -1) 
-    : hostname;
-  
-  if (isValidIpAddress(cleanHostname)) {
-    const ipCheck = checkIpRestrictions(cleanHostname);
-    if (ipCheck.blocked && !isDevelopment) {
-      result.errors.push(`Blocked IP address: ${ipCheck.reason}`);
-      return result;
-    }
-  } else {
-    const allWhitelist = [...SECURITY_CONFIG.WHITELISTED_DOMAINS, ...additionalWhitelist];
-    const hasWhitelist = allWhitelist.length > 0;
-    const isWhitelisted = !hasWhitelist || allWhitelist.some(pattern => 
-      matchesWildcardDomain(hostname, pattern)
-    );
-    
-    if (!isWhitelisted && !isDevelopment && hasWhitelist) {
-      result.errors.push(`Domain not whitelisted: ${hostname}. Allowed domains: ${allWhitelist.join(', ')}`);
-      return result;
-    }
-  }
-  
-  if (urlObj.username || urlObj.password) {
-    result.errors.push('URLs with embedded credentials are not allowed');
-    return result;
-  }
-  
-  result.valid = true;
-  return result;
+  // Force skip DNS resolution for sync version
+  const syncOptions = { ...options, skipDnsResolution: true };
+  const validationResult = _performCoreValidationSync(urlString, syncOptions);
+  return buildFinalResult(urlString, validationResult.normalizedUrl, validationResult);
 }
 
 /**

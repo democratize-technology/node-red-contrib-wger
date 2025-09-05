@@ -172,6 +172,6 @@ class MockTimeProvider {
 module.exports = {
   SystemTimeProvider,
   MockTimeProvider,
-  // Default export for convenience
-  default: new SystemTimeProvider()
+  // Factory function to avoid singleton pattern risks
+  default: () => new SystemTimeProvider()
 };

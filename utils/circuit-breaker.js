@@ -6,7 +6,7 @@
  */
 
 const { handleAll, circuitBreaker, ConsecutiveBreaker } = require('cockatiel');
-const timeProvider = require('./time-provider').default;
+const timeProviderFactory = require('./time-provider').default;
 
 /**
  * Configuration options for circuit breaker behavior.
@@ -57,7 +57,10 @@ class CircuitBreaker {
     this.failureThreshold = config.failureThreshold !== undefined ? config.failureThreshold : 5;
     this.resetTimeoutMs = config.resetTimeoutMs || 60000;
     this.halfOpenMaxCalls = config.halfOpenMaxCalls || 3;
-    this.timeProvider = config.timeProvider || timeProvider;
+    this.timeProvider = config.timeProvider || timeProviderFactory();
+    
+    // Validate time provider has required methods
+    this._validateTimeProvider(this.timeProvider);
     
     // Backward compatibility state tracking
     this.state = CircuitBreakerState.CLOSED;
@@ -67,6 +70,26 @@ class CircuitBreaker {
 
     // Create Cockatiel circuit breaker policy
     this._createCockatielPolicy();
+  }
+
+  /**
+   * Validates that the time provider has required methods.
+   * 
+   * @private
+   * @param {Object} provider - Time provider to validate
+   * @throws {Error} If provider is invalid or missing required methods
+   */
+  _validateTimeProvider(provider) {
+    if (!provider) {
+      throw new Error('CircuitBreaker: timeProvider is required');
+    }
+    
+    const requiredMethods = ['now', 'setTimeout', 'clearTimeout'];
+    for (const method of requiredMethods) {
+      if (typeof provider[method] !== 'function') {
+        throw new Error(`CircuitBreaker: timeProvider must have a '${method}' method`);
+      }
+    }
   }
 
   /**

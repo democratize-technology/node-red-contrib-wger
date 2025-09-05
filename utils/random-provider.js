@@ -224,6 +224,6 @@ module.exports = {
   SystemRandomProvider,
   SeededRandomProvider,
   MockRandomProvider,
-  // Default export for convenience
-  default: new SystemRandomProvider()
+  // Factory function to avoid singleton pattern risks
+  default: () => new SystemRandomProvider()
 };

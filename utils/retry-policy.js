@@ -6,8 +6,8 @@
  */
 
 const { handleWhen, retry, ExponentialBackoff } = require('cockatiel');
-const timeProvider = require('./time-provider').default;
-const randomProvider = require('./random-provider').default;
+const timeProviderFactory = require('./time-provider').default;
+const randomProviderFactory = require('./random-provider').default;
 
 /**
  * Configuration options for retry policy behavior.
@@ -57,11 +57,44 @@ class RetryPolicy {
     this.retryableStatusCodes = config.retryableStatusCodes || [429, 502, 503, 504];
     this.retryOnNetworkError = config.retryOnNetworkError !== false;
     this.retryOnTimeout = config.retryOnTimeout !== false;
-    this.timeProvider = config.timeProvider || timeProvider;
-    this.randomProvider = config.randomProvider || randomProvider;
+    this.timeProvider = config.timeProvider || timeProviderFactory();
+    this.randomProvider = config.randomProvider || randomProviderFactory();
+    
+    // Validate providers have required methods
+    this._validateProviders();
 
     // Create Cockatiel policy with equivalent configuration
     this._createCockatielPolicy();
+  }
+
+  /**
+   * Validates that providers have required methods.
+   * 
+   * @private
+   * @throws {Error} If any provider is invalid or missing required methods
+   */
+  _validateProviders() {
+    // Validate time provider
+    if (!this.timeProvider) {
+      throw new Error('RetryPolicy: timeProvider is required');
+    }
+    const timeRequiredMethods = ['now', 'delay'];
+    for (const method of timeRequiredMethods) {
+      if (typeof this.timeProvider[method] !== 'function') {
+        throw new Error(`RetryPolicy: timeProvider must have a '${method}' method`);
+      }
+    }
+    
+    // Validate random provider
+    if (!this.randomProvider) {
+      throw new Error('RetryPolicy: randomProvider is required');
+    }
+    const randomRequiredMethods = ['random'];
+    for (const method of randomRequiredMethods) {
+      if (typeof this.randomProvider[method] !== 'function') {
+        throw new Error(`RetryPolicy: randomProvider must have a '${method}' method`);
+      }
+    }
   }
 
   /**

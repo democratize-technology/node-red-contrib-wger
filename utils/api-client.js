@@ -11,7 +11,7 @@ const { wrap } = require('cockatiel');
 const { API, STATUS } = require('./constants');
 const RetryPolicy = require('./retry-policy');
 const { CircuitBreaker } = require('./circuit-breaker');
-const timeProvider = require('./time-provider').default;
+const timeProviderFactory = require('./time-provider').default;
 
 /**
  * HTTP client for interacting with the wger fitness API.
@@ -50,22 +50,107 @@ class WgerApiClient {
   constructor(apiUrl, authHeader, resilience = {}) {
     this.apiUrl = apiUrl;
     this.authHeader = authHeader;
-    this.timeProvider = resilience.timeProvider || timeProvider;
+    this.timeProvider = resilience.timeProvider || timeProviderFactory();
     
-    // Initialize retry policy if configuration provided (pass timeProvider for consistency)
-    this.retryPolicy = resilience.retry ? new RetryPolicy({
-      ...resilience.retry,
-      timeProvider: this.timeProvider
-    }) : null;
+    // Validate time provider
+    this._validateTimeProvider(this.timeProvider);
     
-    // Initialize circuit breaker if configuration provided (pass timeProvider for consistency)
-    this.circuitBreaker = resilience.circuitBreaker ? new CircuitBreaker({
-      ...resilience.circuitBreaker,
-      timeProvider: this.timeProvider
-    }) : null;
+    // Handle retry policy - could be configuration or pre-instantiated object
+    if (resilience.retry) {
+      if (resilience.retry.shouldRetry && typeof resilience.retry.shouldRetry === 'function') {
+        // Pre-instantiated RetryPolicy object
+        this._validateRetryPolicy(resilience.retry);
+        this.retryPolicy = resilience.retry;
+      } else {
+        // Configuration object - create new RetryPolicy instance
+        this.retryPolicy = new RetryPolicy({
+          ...resilience.retry,
+          timeProvider: this.timeProvider
+        });
+      }
+    } else {
+      this.retryPolicy = null;
+    }
+    
+    // Handle circuit breaker - could be configuration or pre-instantiated object  
+    if (resilience.circuitBreaker) {
+      if (resilience.circuitBreaker.canExecute && typeof resilience.circuitBreaker.canExecute === 'function') {
+        // Pre-instantiated CircuitBreaker object
+        this._validateCircuitBreaker(resilience.circuitBreaker);
+        this.circuitBreaker = resilience.circuitBreaker;
+      } else {
+        // Configuration object - create new CircuitBreaker instance
+        this.circuitBreaker = new CircuitBreaker({
+          ...resilience.circuitBreaker,
+          timeProvider: this.timeProvider
+        });
+      }
+    } else {
+      this.circuitBreaker = null;
+    }
     
     // Create combined Cockatiel policy for efficient execution
     this._createCombinedPolicy();
+  }
+
+  /**
+   * Validates that the time provider has required methods.
+   * 
+   * @private
+   * @param {Object} provider - Time provider to validate
+   * @throws {Error} If provider is invalid or missing required methods
+   */
+  _validateTimeProvider(provider) {
+    if (!provider) {
+      throw new Error('WgerApiClient: timeProvider is required');
+    }
+    
+    const requiredMethods = ['setTimeout', 'clearTimeout'];
+    for (const method of requiredMethods) {
+      if (typeof provider[method] !== 'function') {
+        throw new Error(`WgerApiClient: timeProvider must have a '${method}' method`);
+      }
+    }
+  }
+
+  /**
+   * Validates that a retry policy has required methods.
+   * 
+   * @private
+   * @param {Object} policy - Retry policy to validate
+   * @throws {Error} If policy is invalid or missing required methods
+   */
+  _validateRetryPolicy(policy) {
+    if (!policy) {
+      throw new Error('WgerApiClient: retryPolicy is required when provided');
+    }
+    
+    const requiredMethods = ['shouldRetry', 'getRetryDelay', 'delay'];
+    for (const method of requiredMethods) {
+      if (typeof policy[method] !== 'function') {
+        throw new Error(`WgerApiClient: retryPolicy must have a '${method}' method`);
+      }
+    }
+  }
+
+  /**
+   * Validates that a circuit breaker has required methods.
+   * 
+   * @private
+   * @param {Object} breaker - Circuit breaker to validate
+   * @throws {Error} If breaker is invalid or missing required methods
+   */
+  _validateCircuitBreaker(breaker) {
+    if (!breaker) {
+      throw new Error('WgerApiClient: circuitBreaker is required when provided');
+    }
+    
+    const requiredMethods = ['canExecute', 'onSuccess', 'onFailure'];
+    for (const method of requiredMethods) {
+      if (typeof breaker[method] !== 'function') {
+        throw new Error(`WgerApiClient: circuitBreaker must have a '${method}' method`);
+      }
+    }
   }
 
   /**

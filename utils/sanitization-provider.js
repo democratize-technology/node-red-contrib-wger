@@ -223,6 +223,6 @@ module.exports = {
   SystemSanitizationProvider,
   MockSanitizationProvider,
   PassThroughSanitizationProvider,
-  // Default export for convenience
-  default: new SystemSanitizationProvider()
+  // Factory function to avoid singleton pattern risks
+  default: () => new SystemSanitizationProvider()
 };

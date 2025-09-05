@@ -10,7 +10,7 @@
 
 const validator = require('validator');
 const { z } = require('zod');
-const sanitizationProvider = require('./sanitization-provider').default;
+const sanitizationProviderFactory = require('./sanitization-provider').default;
 
 /**
  * Comprehensive input validation utility with security-first design.
@@ -38,20 +38,22 @@ const sanitizationProvider = require('./sanitization-provider').default;
 class InputValidator {
   /**
    * Configurable sanitization provider for dependency injection.
-   * Defaults to system provider but can be overridden for testing.
+   * Defaults to system provider factory but can be overridden for testing.
    * 
    * @static
    * @private
    */
-  static _sanitizationProvider = sanitizationProvider;
+  static _sanitizationProvider = sanitizationProviderFactory();
 
   /**
    * Configures the sanitization provider for dependency injection.
    * 
    * @static
    * @param {Object} provider - Sanitization provider instance
+   * @throws {Error} If provider is invalid or missing required methods
    */
   static configureSanitizationProvider(provider) {
+    this._validateSanitizationProvider(provider);
     this._sanitizationProvider = provider;
   }
 
@@ -63,6 +65,27 @@ class InputValidator {
    */
   static getSanitizationProvider() {
     return this._sanitizationProvider;
+  }
+
+  /**
+   * Validates that the sanitization provider has required methods.
+   * 
+   * @static
+   * @private
+   * @param {Object} provider - Sanitization provider to validate
+   * @throws {Error} If provider is invalid or missing required methods
+   */
+  static _validateSanitizationProvider(provider) {
+    if (!provider) {
+      throw new Error('InputValidator: sanitizationProvider is required');
+    }
+    
+    const requiredMethods = ['sanitizeHtml', 'normalizeEmail'];
+    for (const method of requiredMethods) {
+      if (typeof provider[method] !== 'function') {
+        throw new Error(`InputValidator: sanitizationProvider must have a '${method}' method`);
+      }
+    }
   }
 
   /**

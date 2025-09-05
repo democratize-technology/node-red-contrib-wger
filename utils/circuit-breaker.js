@@ -1,9 +1,11 @@
 /**
  * @fileoverview Circuit breaker implementation to prevent cascading failures
  * @module utils/circuit-breaker
- * @version 1.0.0
+ * @version 2.0.0
  * @author Node-RED wger contrib team
  */
+
+const { handleAll, circuitBreaker, ConsecutiveBreaker } = require('cockatiel');
 
 /**
  * Configuration options for circuit breaker behavior.
@@ -27,8 +29,7 @@ const CircuitBreakerState = {
 
 /**
  * Circuit breaker class that prevents cascading failures by monitoring failure patterns.
- * When too many failures occur, it "opens" the circuit and fails fast, giving the
- * downstream service time to recover.
+ * Now implemented using Cockatiel's ConsecutiveBreaker for battle-tested resilience.
  * 
  * @class CircuitBreaker
  * @example
@@ -55,14 +56,86 @@ class CircuitBreaker {
     this.resetTimeoutMs = config.resetTimeoutMs || 60000;
     this.halfOpenMaxCalls = config.halfOpenMaxCalls || 3;
     
+    // Backward compatibility state tracking
     this.state = CircuitBreakerState.CLOSED;
     this.failureCount = 0;
     this.nextAttemptTime = 0;
     this.halfOpenCallCount = 0;
+
+    // Create Cockatiel circuit breaker policy
+    this._createCockatielPolicy();
+  }
+
+  /**
+   * Creates the underlying Cockatiel circuit breaker policy.
+   * 
+   * @private
+   */
+  _createCockatielPolicy() {
+    const breaker = new ConsecutiveBreaker(this.failureThreshold);
+    
+    this._policy = circuitBreaker(handleAll, {
+      halfOpenAfter: this.resetTimeoutMs,
+      breaker: breaker
+    });
+
+    // Set up event listeners to maintain backward compatibility state
+    this._policy.onFailure(() => {
+      this.failureCount++;
+      this._updateState();
+    });
+
+    this._policy.onSuccess(() => {
+      this.failureCount = 0;
+      this._updateState();
+    });
+
+    this._policy.onHalfOpen(() => {
+      this.state = CircuitBreakerState.HALF_OPEN;
+      this.halfOpenCallCount = 0;
+    });
+
+    this._policy.onBreak(() => {
+      this.state = CircuitBreakerState.OPEN;
+      this.nextAttemptTime = Date.now() + this.resetTimeoutMs;
+    });
+  }
+
+  /**
+   * Updates internal state tracking for backward compatibility.
+   * 
+   * @private
+   */
+  _updateState() {
+    // Mirror the Cockatiel state to our state enum for compatibility
+    if (this.failureCount >= this.failureThreshold && this.failureThreshold > 0) {
+      this.state = CircuitBreakerState.OPEN;
+      this.nextAttemptTime = Date.now() + this.resetTimeoutMs;
+    } else if (this.failureCount === 0) {
+      this.state = CircuitBreakerState.CLOSED;
+      this.nextAttemptTime = 0;
+    }
+  }
+
+  /**
+   * Executes a function with circuit breaker protection using Cockatiel.
+   * 
+   * @param {Function} fn - The function to execute with circuit breaker protection
+   * @returns {Promise<*>} The result of the function execution
+   * @throws {Error} Circuit breaker error if circuit is open, or function error
+   * 
+   * @example
+   * const result = await breaker.execute(async () => {
+   *   return await makeApiCall();
+   * });
+   */
+  async execute(fn) {
+    return this._policy.execute(fn);
   }
 
   /**
    * Checks if a call should be allowed through the circuit breaker.
+   * Maintained for backward compatibility.
    * 
    * @returns {boolean} True if the call should be allowed, false if circuit is open
    * 
@@ -104,6 +177,7 @@ class CircuitBreaker {
 
   /**
    * Records a successful operation and potentially closes the circuit.
+   * Maintained for backward compatibility.
    */
   onSuccess() {
     switch (this.state) {
@@ -123,6 +197,7 @@ class CircuitBreaker {
 
   /**
    * Records a failed operation and potentially opens the circuit.
+   * Maintained for backward compatibility.
    */
   onFailure() {
     this.failureCount++;
@@ -138,6 +213,15 @@ class CircuitBreaker {
       this._transitionToOpen();
       break;
     }
+  }
+
+  /**
+   * Gets the underlying Cockatiel policy for advanced usage.
+   * 
+   * @returns {Policy} The Cockatiel circuit breaker policy
+   */
+  getCockatielPolicy() {
+    return this._policy;
   }
 
   /**

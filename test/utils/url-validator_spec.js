@@ -5,7 +5,7 @@ const {
   validateUrl, 
   validateUrlSync, 
   isDevEnvironment,
-  SECURITY_CONFIG,
+  SECURITY_CONFIG: _SECURITY_CONFIG,
   _internal 
 } = require('../../utils/url-validator');
 

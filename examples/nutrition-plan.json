@@ -1,0 +1,274 @@
+[
+  {
+    "id": "nutrition-plan-flow",
+    "type": "tab",
+    "label": "Wger Nutrition Plan",
+    "disabled": false,
+    "info": "This flow demonstrates how to create and manage nutrition plans using the Wger API."
+  },
+  {
+    "id": "wger-config-nutrition",
+    "type": "wger-config",
+    "name": "Wger API",
+    "apiUrl": "https://wger.de",
+    "authType": "token"
+  },
+  {
+    "id": "create-nutrition-plan",
+    "type": "inject",
+    "z": "nutrition-plan-flow",
+    "name": "Create Nutrition Plan",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"description\":\"High Protein Diet\",\"only_logging\":false,\"goal_energy\":2000,\"goal_protein\":150,\"goal_carbohydrates\":200,\"goal_fat\":70}",
+    "payloadType": "json",
+    "x": 150,
+    "y": 100,
+    "wires": [["nutrition-plan-node"]]
+  },
+  {
+    "id": "nutrition-plan-node",
+    "type": "wger-nutrition",
+    "z": "nutrition-plan-flow",
+    "name": "Create Plan",
+    "server": "wger-config-nutrition",
+    "operation": "createPlan",
+    "x": 350,
+    "y": 100,
+    "wires": [["store-plan-id", "debug-plan"]]
+  },
+  {
+    "id": "store-plan-id",
+    "type": "function",
+    "z": "nutrition-plan-flow",
+    "name": "Store Plan ID",
+    "func": "// Store the plan ID for subsequent operations\nif (msg.payload && msg.payload.id) {\n    flow.set('planId', msg.payload.id);\n    msg.payload = {\n        message: 'Plan created successfully',\n        planId: msg.payload.id\n    };\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 550,
+    "y": 100,
+    "wires": [["debug-stored"]]
+  },
+  {
+    "id": "debug-plan",
+    "type": "debug",
+    "z": "nutrition-plan-flow",
+    "name": "Plan Created",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 540,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "debug-stored",
+    "type": "debug",
+    "z": "nutrition-plan-flow",
+    "name": "Plan ID Stored",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 740,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "add-meal",
+    "type": "inject",
+    "z": "nutrition-plan-flow",
+    "name": "Add Breakfast Meal",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"plan\":null,\"time\":\"08:00:00\",\"name\":\"Breakfast\"}",
+    "payloadType": "json",
+    "x": 160,
+    "y": 240,
+    "wires": [["prepare-meal-payload"]]
+  },
+  {
+    "id": "prepare-meal-payload",
+    "type": "function",
+    "z": "nutrition-plan-flow",
+    "name": "Add Plan ID",
+    "func": "// Get the stored plan ID and add it to the payload\nconst planId = flow.get('planId');\nif (planId) {\n    msg.payload.plan = planId;\n} else {\n    node.error('No plan ID found. Create a plan first.');\n    return null;\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 350,
+    "y": 240,
+    "wires": [["create-meal-node"]]
+  },
+  {
+    "id": "create-meal-node",
+    "type": "wger-nutrition",
+    "z": "nutrition-plan-flow",
+    "name": "Create Meal",
+    "server": "wger-config-nutrition",
+    "operation": "createMeal",
+    "x": 520,
+    "y": 240,
+    "wires": [["debug-meal"]]
+  },
+  {
+    "id": "debug-meal",
+    "type": "debug",
+    "z": "nutrition-plan-flow",
+    "name": "Meal Created",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 690,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "search-ingredient",
+    "type": "inject",
+    "z": "nutrition-plan-flow",
+    "name": "Search for Oats",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"term\":\"oats\",\"language\":\"en\"}",
+    "payloadType": "json",
+    "x": 150,
+    "y": 320,
+    "wires": [["search-ingredient-node"]]
+  },
+  {
+    "id": "search-ingredient-node",
+    "type": "wger-nutrition",
+    "z": "nutrition-plan-flow",
+    "name": "Search Ingredients",
+    "server": "wger-config-nutrition",
+    "operation": "searchIngredients",
+    "x": 360,
+    "y": 320,
+    "wires": [["debug-ingredients"]]
+  },
+  {
+    "id": "debug-ingredients",
+    "type": "debug",
+    "z": "nutrition-plan-flow",
+    "name": "Found Ingredients",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 580,
+    "y": 320,
+    "wires": []
+  },
+  {
+    "id": "get-nutrition-values",
+    "type": "inject",
+    "z": "nutrition-plan-flow",
+    "name": "Get Plan Nutrition",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{}",
+    "payloadType": "json",
+    "x": 160,
+    "y": 400,
+    "wires": [["prepare-nutrition-payload"]]
+  },
+  {
+    "id": "prepare-nutrition-payload",
+    "type": "function",
+    "z": "nutrition-plan-flow",
+    "name": "Add Plan ID for Nutrition",
+    "func": "// Get the stored plan ID for nutrition calculation\nconst planId = flow.get('planId');\nif (planId) {\n    msg.payload = {\n        planId: planId\n    };\n} else {\n    node.error('No plan ID found. Create a plan first.');\n    return null;\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 390,
+    "y": 400,
+    "wires": [["get-nutrition-node"]]
+  },
+  {
+    "id": "get-nutrition-node",
+    "type": "wger-nutrition",
+    "z": "nutrition-plan-flow",
+    "name": "Get Nutrition Values",
+    "server": "wger-config-nutrition",
+    "operation": "getNutritionalValues",
+    "x": 610,
+    "y": 400,
+    "wires": [["debug-nutrition"]]
+  },
+  {
+    "id": "debug-nutrition",
+    "type": "debug",
+    "z": "nutrition-plan-flow",
+    "name": "Nutrition Values",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 810,
+    "y": 400,
+    "wires": []
+  }
+]

@@ -9,7 +9,7 @@ const userOperations = {
   // User profile operations
   getUserProfile: OperationBuilders.customOperation(
     null,
-    async (client, payload) => {
+    async (client, _payload) => {
       return await client.get(API.ENDPOINTS.USER_PROFILE);
     },
     validationSchemas.user.getUserProfile
@@ -33,7 +33,7 @@ const userOperations = {
   // API key operations
   getApiKey: OperationBuilders.customOperation(
     null,
-    async (client, payload) => {
+    async (client, _payload) => {
       return await client.get(API.ENDPOINTS.API_KEYS);
     },
     validationSchemas.user.getApiKey
@@ -41,7 +41,7 @@ const userOperations = {
   
   generateApiKey: OperationBuilders.customOperation(
     null,
-    async (client, payload) => {
+    async (client, _payload) => {
       // First delete existing keys
       const keys = await client.get(API.ENDPOINTS.API_KEYS);
       if (keys.results && keys.results.length > 0) {
@@ -58,7 +58,7 @@ const userOperations = {
   // User preferences operations
   getUserPreferences: OperationBuilders.customOperation(
     null,
-    async (client, payload) => {
+    async (client, _payload) => {
       return await client.get(API.ENDPOINTS.USER_SETTINGS);
     },
     validationSchemas.user.getUserPreferences

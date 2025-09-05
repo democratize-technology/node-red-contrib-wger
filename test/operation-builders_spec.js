@@ -159,7 +159,7 @@ describe('OperationBuilders', function () {
       const handler = OperationBuilders.deleteOperation('/api/test/{id}/', 'itemId');
       client.delete.resolves({});
 
-      const result = await handler(client, { itemId: 42 });
+      const _result = await handler(client, { itemId: 42 });
       
       sinon.assert.calledOnce(client.delete);
       sinon.assert.calledWith(client.delete, '/api/test/42/');
@@ -190,7 +190,7 @@ describe('OperationBuilders', function () {
     });
 
     it('should validate required fields', async function () {
-      const customHandler = async (client, payload) => ({ success: true });
+      const customHandler = async (_client, _payload) => ({ success: true });
       const handler = OperationBuilders.customOperation(['field1', 'field2'], customHandler);
 
       try {
@@ -202,7 +202,7 @@ describe('OperationBuilders', function () {
     });
 
     it('should work without required fields', async function () {
-      const customHandler = async (client, payload) => ({ result: 'ok' });
+      const customHandler = async (_client, _payload) => ({ result: 'ok' });
       const handler = OperationBuilders.customOperation(null, customHandler);
       
       const result = await handler(client, {});

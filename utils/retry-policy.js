@@ -1,9 +1,11 @@
 /**
  * @fileoverview Retry policy implementation with exponential backoff and configurable retry logic
  * @module utils/retry-policy
- * @version 1.0.0
+ * @version 2.0.0
  * @author Node-RED wger contrib team
  */
+
+const { handleWhen, retry, ExponentialBackoff } = require('cockatiel');
 
 /**
  * Configuration options for retry policy behavior.
@@ -20,7 +22,7 @@
 
 /**
  * Retry policy class that determines whether an error should be retried and calculates delays.
- * Implements exponential backoff with jitter and configurable retry conditions.
+ * Now implemented using Cockatiel for battle-tested resilience patterns.
  * 
  * @class RetryPolicy
  * @example
@@ -51,29 +53,46 @@ class RetryPolicy {
     this.retryableStatusCodes = config.retryableStatusCodes || [429, 502, 503, 504];
     this.retryOnNetworkError = config.retryOnNetworkError !== false;
     this.retryOnTimeout = config.retryOnTimeout !== false;
+
+    // Create Cockatiel policy with equivalent configuration
+    this._createCockatielPolicy();
+  }
+
+  /**
+   * Creates the underlying Cockatiel retry policy.
+   * 
+   * @private
+   */
+  _createCockatielPolicy() {
+    const backoff = new ExponentialBackoff({
+      initialDelay: this.baseDelayMs,
+      maxDelay: this.maxDelayMs,
+      exponent: 2,
+      jitter: this.jitterRatio
+    });
+
+    // Create retry policy with error filtering
+    this._policy = retry(
+      handleWhen(error => this._shouldRetryError(error)), 
+      {
+        maxAttempts: this.maxAttempts,
+        backoff: backoff
+      }
+    );
   }
 
   /**
    * Determines whether an error should be retried based on the configured retry conditions.
    * 
+   * @private
    * @param {Error} error - The error to evaluate
-   * @param {number} attemptNumber - Current attempt number (1-based)
    * @returns {boolean} True if the error should be retried, false otherwise
-   * 
-   * @example
-   * const error = new Error('Network timeout');
-   * error.code = 'ETIMEDOUT';
-   * const shouldRetry = policy.shouldRetry(error, 2);
    */
-  shouldRetry(error, attemptNumber) {
-    // Don't retry if we've exceeded max attempts
-    if (attemptNumber >= this.maxAttempts) {
-      return false;
-    }
-
+  _shouldRetryError(error) {
     // Check for HTTP response errors with retryable status codes
-    if (error.status && typeof error.status === 'number') {
-      return this.retryableStatusCodes.includes(error.status);
+    const statusCode = error.status || (error.response && error.response.status);
+    if (statusCode && typeof statusCode === 'number') {
+      return this.retryableStatusCodes.includes(statusCode);
     }
 
     // Check for network/connection errors
@@ -91,7 +110,46 @@ class RetryPolicy {
   }
 
   /**
+   * Executes a function with retry logic using Cockatiel policies.
+   * 
+   * @param {Function} fn - The function to execute with retry
+   * @returns {Promise<*>} The result of the function execution
+   * @throws {Error} The last error if all retry attempts fail
+   * 
+   * @example
+   * const result = await policy.execute(async () => {
+   *   return await makeApiCall();
+   * });
+   */
+  async execute(fn) {
+    return this._policy.execute(fn);
+  }
+
+  /**
+   * Determines whether an error should be retried based on the configured retry conditions.
+   * Maintained for backward compatibility.
+   * 
+   * @param {Error} error - The error to evaluate
+   * @param {number} attemptNumber - Current attempt number (1-based)
+   * @returns {boolean} True if the error should be retried, false otherwise
+   * 
+   * @example
+   * const error = new Error('Network timeout');
+   * error.code = 'ETIMEDOUT';
+   * const shouldRetry = policy.shouldRetry(error, 2);
+   */
+  shouldRetry(error, attemptNumber) {
+    // Don't retry if we've exceeded max attempts
+    if (attemptNumber >= this.maxAttempts) {
+      return false;
+    }
+
+    return this._shouldRetryError(error);
+  }
+
+  /**
    * Calculates the delay before the next retry attempt using exponential backoff with jitter.
+   * Maintained for backward compatibility - now uses Cockatiel's backoff calculation.
    * 
    * @param {number} attemptNumber - Current attempt number (1-based)
    * @returns {number} Delay in milliseconds before next retry
@@ -106,7 +164,7 @@ class RetryPolicy {
     // Cap at maximum delay
     const cappedDelay = Math.min(exponentialDelay, this.maxDelayMs);
     
-    // Apply jitter to prevent thundering herd
+    // Apply jitter to prevent thundering herd (maintain exact same jitter algorithm)
     const jitterRange = cappedDelay * this.jitterRatio;
     const jitter = (Math.random() * 2 - 1) * jitterRange; // Random between -jitterRange and +jitterRange
     
@@ -115,6 +173,7 @@ class RetryPolicy {
 
   /**
    * Creates a retry delay promise that resolves after the calculated delay.
+   * Maintained for backward compatibility.
    * 
    * @param {number} attemptNumber - Current attempt number (1-based)
    * @returns {Promise<void>} Promise that resolves after the retry delay
@@ -125,6 +184,15 @@ class RetryPolicy {
   async delay(attemptNumber) {
     const delayMs = this.getRetryDelay(attemptNumber);
     return new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+
+  /**
+   * Gets the underlying Cockatiel policy for advanced usage.
+   * 
+   * @returns {Policy} The Cockatiel retry policy
+   */
+  getCockatielPolicy() {
+    return this._policy;
   }
 
   /**
@@ -143,8 +211,8 @@ class RetryPolicy {
     ];
     
     return networkErrorCodes.includes(error.code) || 
-           error.message.includes('Network Error') ||
-           error.message.includes('No response received from server');
+           error.message?.includes('Network Error') ||
+           error.message?.includes('No response received from server');
   }
 
   /**
@@ -158,8 +226,8 @@ class RetryPolicy {
     const timeoutErrorCodes = ['ETIMEDOUT', 'TIMEOUT'];
     
     return timeoutErrorCodes.includes(error.code) ||
-           error.message.includes('timeout') ||
-           error.message.includes('Request timed out');
+           error.message?.includes('timeout') ||
+           error.message?.includes('Request timed out');
   }
 
   /**

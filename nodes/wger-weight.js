@@ -33,7 +33,7 @@ module.exports = function (RED) {
     const cache = getSharedCache();
     const userId = 'default'; // This will be set by the node instance
     
-    const fetchData = async (startDate, endDate, options) => {
+    const fetchData = async (startDate, endDate, _options) => {
       // Optimize: Only fetch minimal required fields
       const params = {
         date__gte: startDate,

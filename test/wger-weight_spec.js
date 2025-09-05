@@ -412,7 +412,7 @@ describe('wger-weight Node', function () {
       const n1 = helper.getNode('n1');
       const n2 = helper.getNode('n2');
       
-      n2.on('input', function (msg) {
+      n2.on('input', function (_msg) {
         // After create operation, cache should be invalidated
         const cacheResult = cache.get('c1', '', '', {});
         should.not.exist(cacheResult);

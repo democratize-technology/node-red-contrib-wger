@@ -145,7 +145,7 @@ describe('wger-exercise Node', function () {
           done();
         });
 
-        n1.on('call:error', (call) => {
+        n1.on('call:error', (_call) => {
           // Accept errors as valid test outcome too
           responseReceived = true;
           done();
@@ -488,7 +488,7 @@ describe('wger-exercise Node', function () {
           done();
         });
 
-        n1.on('call:error', (call) => {
+        n1.on('call:error', (_call) => {
           // Network errors are acceptable for this test
           responseReceived = true;
           done();

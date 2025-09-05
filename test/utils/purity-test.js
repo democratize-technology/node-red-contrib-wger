@@ -101,7 +101,7 @@ describe('Purity Tests - Dependency Injection Verification', function() {
   describe('InputValidator with MockSanitizationProvider', function() {
     beforeEach(function() {
       // Reset to default provider after each test
-      InputValidator.configureSanitizationProvider(require('../../utils/sanitization-provider').default);
+      InputValidator.configureSanitizationProvider(require('../../utils/sanitization-provider').default());
     });
 
     it('should use injected sanitization provider', function() {

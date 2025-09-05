@@ -10,6 +10,50 @@ const { URL } = require('url');
 const ipaddr = require('ipaddr.js');
 
 /**
+ * Creates a standardized validation result object
+ * @private
+ * @param {boolean} success - Whether validation passed
+ * @param {string[]} errors - Array of error messages
+ * @param {string[]} warnings - Array of warning messages
+ * @returns {Object} Validation result
+ */
+function createValidationResult(success, errors = [], warnings = []) {
+  return { success, errors: [...errors], warnings: [...warnings] };
+}
+
+/**
+ * Combines multiple validation results immutably
+ * @private
+ * @param {Object[]} results - Array of validation results
+ * @returns {Object} Combined validation result
+ */
+function combineValidationResults(results) {
+  return {
+    success: results.every(r => r.success),
+    errors: results.flatMap(r => r.errors || []),
+    warnings: results.flatMap(r => r.warnings || [])
+  };
+}
+
+/**
+ * Builds final URL validation result immutably
+ * @private
+ * @param {string} urlString - Original URL string
+ * @param {string} normalizedUrl - Normalized URL
+ * @param {Object} validationResults - Combined validation results
+ * @returns {Object} Final result object
+ */
+function buildFinalResult(urlString, normalizedUrl, validationResults) {
+  return {
+    valid: validationResults.success,
+    url: urlString,
+    errors: [...validationResults.errors],
+    warnings: [...validationResults.warnings],
+    normalizedUrl
+  };
+}
+
+/**
  * Security configuration for URL validation
  */
 const SECURITY_CONFIG = {

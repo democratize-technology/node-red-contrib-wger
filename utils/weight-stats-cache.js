@@ -173,15 +173,13 @@ class WeightStatsCache {
    * @param {string} [dateRange] - Date range to invalidate
    */
   invalidate(userId = null, dateRange = null) {
-    const keysToDelete = [];
-    
-    for (const [key, entry] of this.cache.entries()) {
-      if (userId && key.includes(userId)) {
-        keysToDelete.push(key);
-      } else if (dateRange && entry.dateRange === dateRange) {
-        keysToDelete.push(key);
-      }
-    }
+    const keysToDelete = Array.from(this.cache.entries())
+      .filter(([key, entry]) => {
+        if (userId && key.includes(userId)) return true;
+        if (dateRange && entry.dateRange === dateRange) return true;
+        return false;
+      })
+      .map(([key]) => key);
     
     keysToDelete.forEach(key => this.cache.delete(key));
   }

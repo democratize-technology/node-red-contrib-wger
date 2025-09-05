@@ -71,17 +71,11 @@ class WgerApiClient {
       return;
     }
 
-    const policies = [];
-    
-    // Add retry policy first (inner layer)
-    if (this.retryPolicy) {
-      policies.push(this.retryPolicy.getCockatielPolicy());
-    }
-    
-    // Add circuit breaker policy second (outer layer)
-    if (this.circuitBreaker) {
-      policies.push(this.circuitBreaker.getCockatielPolicy());
-    }
+    // Build resilience policies array immutably
+    const policies = [
+      ...(this.retryPolicy ? [this.retryPolicy.getCockatielPolicy()] : []),
+      ...(this.circuitBreaker ? [this.circuitBreaker.getCockatielPolicy()] : [])
+    ];
 
     // Wrap policies together for efficient execution
     this._combinedPolicy = policies.length > 1 

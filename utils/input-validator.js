@@ -10,12 +10,7 @@
 
 const validator = require('validator');
 const { z } = require('zod');
-const createDOMPurify = require('dompurify');
-const { JSDOM } = require('jsdom');
-
-// Initialize DOMPurify for Node.js environment
-const window = new JSDOM('').window;
-const DOMPurify = createDOMPurify(window);
+const sanitizationProviderFactory = require('./sanitization-provider').default;
 
 /**
  * Comprehensive input validation utility with security-first design.
@@ -41,6 +36,58 @@ const DOMPurify = createDOMPurify(window);
  * const validated = InputValidator.validatePayload(payload, schema);
  */
 class InputValidator {
+  /**
+   * Configurable sanitization provider for dependency injection.
+   * Defaults to system provider factory but can be overridden for testing.
+   * 
+   * @static
+   * @private
+   */
+  static _sanitizationProvider = sanitizationProviderFactory();
+
+  /**
+   * Configures the sanitization provider for dependency injection.
+   * 
+   * @static
+   * @param {Object} provider - Sanitization provider instance
+   * @throws {Error} If provider is invalid or missing required methods
+   */
+  static configureSanitizationProvider(provider) {
+    this._validateSanitizationProvider(provider);
+    this._sanitizationProvider = provider;
+  }
+
+  /**
+   * Gets the current sanitization provider.
+   * 
+   * @static
+   * @returns {Object} Current sanitization provider
+   */
+  static getSanitizationProvider() {
+    return this._sanitizationProvider;
+  }
+
+  /**
+   * Validates that the sanitization provider has required methods.
+   * 
+   * @static
+   * @private
+   * @param {Object} provider - Sanitization provider to validate
+   * @throws {Error} If provider is invalid or missing required methods
+   */
+  static _validateSanitizationProvider(provider) {
+    if (!provider) {
+      throw new Error('InputValidator: sanitizationProvider is required');
+    }
+    
+    const requiredMethods = ['sanitizeHtml', 'normalizeEmail'];
+    for (const method of requiredMethods) {
+      if (typeof provider[method] !== 'function') {
+        throw new Error(`InputValidator: sanitizationProvider must have a '${method}' method`);
+      }
+    }
+  }
+
   /**
    * Enumeration of supported validation types.
    * Each type corresponds to specific validation and coercion logic.
@@ -318,7 +365,7 @@ class InputValidator {
   static _buildEmailSchema(fieldName, _schema) {
     return z.string()
       .email({ message: `Field '${fieldName}' must be a valid email address` })
-      .transform(val => validator.normalizeEmail(val) || val);
+      .transform(val => this._sanitizationProvider.normalizeEmail(val) || val);
   }
 
   /**
@@ -626,8 +673,8 @@ class InputValidator {
       throw new Error('Input contains path traversal patterns');
     }
     
-    // Enhanced XSS protection with DOMPurify
-    let sanitized = DOMPurify.sanitize(value, {
+    // Enhanced XSS protection using configured sanitization provider
+    let sanitized = this._sanitizationProvider.sanitizeHtml(value, {
       ALLOWED_TAGS: [], // No HTML tags allowed by default
       ALLOWED_ATTR: [],
       KEEP_CONTENT: true, // Keep text content, remove tags

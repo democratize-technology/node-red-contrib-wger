@@ -333,21 +333,20 @@ class WgerApiClient {
    * @param {Object} params - URL parameters
    * @returns {string} Final URL with query string if needed
    */
-  _buildRequestUrl(url, method, params) {
-    if (method !== 'GET' || !params || Object.keys(params).length === 0) {
-      return url;
-    }
-    
-    const urlParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        urlParams.append(key, String(value));
+    _buildRequestUrl(url, method, params) {
+      if (method !== 'GET' || !params || Object.keys(params).length === 0) {
+        return url;
       }
-    });
-    
-    return `${url}?${urlParams.toString()}`;
-  }
-
+  
+      const urlObj = new URL(url);
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          urlObj.searchParams.append(key, String(value));
+        }
+      });
+  
+      return urlObj.toString();
+    }
   /**
    * Creates AbortController with timeout for request cancellation.
    * 

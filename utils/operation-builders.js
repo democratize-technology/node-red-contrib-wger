@@ -35,6 +35,23 @@ const { z } = require('zod');
  */
 class OperationBuilders {
   /**
+   * Helper method to get the effective validation schema for ID-based operations.
+   * If a validation schema is provided, it's used. Otherwise, a minimal schema
+   * is created for the ID field.
+   *
+   * @private
+   * @static
+   * @param {string} idField - Name of the field in payload containing the ID
+   * @param {Object|null} validationSchema - Optional validation schema
+   * @returns {Object} The effective validation schema
+   */
+  static _getEffectiveSchemaForId(idField, validationSchema) {
+    return validationSchema || z.object({
+      [idField]: InputValidator._buildIdSchema(idField, { type: InputValidator.TYPES.ID, required: true })
+    });
+  }
+
+  /**
    * Creates a list operation handler for fetching collections from the API.
    * Handles parameter mapping from payload to API query parameters and optional validation.
    * 
@@ -112,17 +129,13 @@ class OperationBuilders {
    */
   static getByIdOperation(endpointTemplate, idField, validationSchema = null) {
     return async (client, payload) => {
-      // Apply validation if schema provided, otherwise create a minimal schema for the ID field
-      const effectiveSchema = validationSchema || z.object({
-        [idField]: InputValidator._buildIdSchema(idField, { type: InputValidator.TYPES.ID, required: true })
-      });
+      const effectiveSchema = OperationBuilders._getEffectiveSchemaForId(idField, validationSchema);
       payload = InputValidator.validatePayload(payload, effectiveSchema);
       
       const endpoint = endpointTemplate.replace('{id}', payload[idField]);
       return await client.get(endpoint);
     };
   }
-
   /**
    * Creates a create (POST) operation handler for creating new resources.
    * Supports optional payload transformation before sending to the API.
@@ -197,10 +210,7 @@ class OperationBuilders {
    */
   static updateOperation(endpointTemplate, idField, method = 'patch', validationSchema = null) {
     return async (client, payload) => {
-      // Apply validation if schema provided, otherwise create a minimal schema for the ID field
-      const effectiveSchema = validationSchema || z.object({
-        [idField]: InputValidator._buildIdSchema(idField, { type: InputValidator.TYPES.ID, required: true })
-      });
+      const effectiveSchema = OperationBuilders._getEffectiveSchemaForId(idField, validationSchema);
       payload = InputValidator.validatePayload(payload, effectiveSchema);
       
       const updateData = { ...payload };
@@ -231,10 +241,7 @@ class OperationBuilders {
    */
   static deleteOperation(endpointTemplate, idField, validationSchema = null) {
     return async (client, payload) => {
-      // Apply validation if schema provided, otherwise create a minimal schema for the ID field
-      const effectiveSchema = validationSchema || z.object({
-        [idField]: InputValidator._buildIdSchema(idField, { type: InputValidator.TYPES.ID, required: true })
-      });
+      const effectiveSchema = OperationBuilders._getEffectiveSchemaForId(idField, validationSchema);
       payload = InputValidator.validatePayload(payload, effectiveSchema);
       
       const endpoint = endpointTemplate.replace('{id}', payload[idField]);

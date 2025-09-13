@@ -53,7 +53,7 @@ const API = {
     MEAL_BY_ID: '/api/v2/meal/{id}/',
     MEAL_ITEMS: '/api/v2/mealitem/',
     MEAL_ITEM_BY_ID: '/api/v2/mealitem/{id}/',
-    INGREDIENT_SEARCH: '/api/v2/ingredient/search/',
+    INGREDIENTS_SEARCH: '/api/v2/ingredient/search/',
     INGREDIENT_INFO: '/api/v2/ingredientinfo/{id}/',
     INGREDIENT_CATEGORIES: '/api/v2/ingredientcategory/',
     NUTRITION_DIARY: '/api/v2/nutritiondiary/',

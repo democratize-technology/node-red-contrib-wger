@@ -11,7 +11,6 @@ const { wrap } = require('cockatiel');
 const { API, STATUS } = require('./constants');
 const RetryPolicy = require('./retry-policy');
 const { CircuitBreaker } = require('./circuit-breaker');
-const timeProviderFactory = require('./time-provider').default;
 
 /**
  * HTTP client for interacting with the wger fitness API.
@@ -50,10 +49,12 @@ class WgerApiClient {
   constructor(apiUrl, authHeader, resilience = {}) {
     this.apiUrl = apiUrl;
     this.authHeader = authHeader;
-    this.timeProvider = resilience.timeProvider || timeProviderFactory();
-    
-    // Validate time provider
-    this._validateTimeProvider(this.timeProvider);
+    this.timeProvider = resilience.timeProvider || {
+      now: () => Date.now(),
+      setTimeout: (callback, delay) => setTimeout(callback, delay),
+      clearTimeout: (id) => clearTimeout(id),
+      delay: (ms) => new Promise(resolve => setTimeout(resolve, ms))
+    };
     
     // Handle retry policy - could be configuration or pre-instantiated object
     if (resilience.retry) {
@@ -93,25 +94,7 @@ class WgerApiClient {
     this._createCombinedPolicy();
   }
 
-  /**
-   * Validates that the time provider has required methods.
-   * 
-   * @private
-   * @param {Object} provider - Time provider to validate
-   * @throws {Error} If provider is invalid or missing required methods
-   */
-  _validateTimeProvider(provider) {
-    if (!provider) {
-      throw new Error('WgerApiClient: timeProvider is required');
-    }
-    
-    const requiredMethods = ['setTimeout', 'clearTimeout'];
-    for (const method of requiredMethods) {
-      if (typeof provider[method] !== 'function') {
-        throw new Error(`WgerApiClient: timeProvider must have a '${method}' method`);
-      }
-    }
-  }
+
 
   /**
    * Validates that a retry policy has required methods.

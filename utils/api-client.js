@@ -317,10 +317,8 @@ class WgerApiClient {
       if (timeoutId) {
         this.timeProvider.clearTimeout(timeoutId);
       }
-      
-      // Handle and transform various error types
-      const transformedError = this._handleNetworkError(error);
-      throw transformedError;
+      // Re-throw the raw error to be handled by _enhanceError
+      throw error;
     }
   }
 
@@ -446,14 +444,9 @@ class WgerApiClient {
     return error;
   }
 
-  /**
-   * Handles and transforms network errors into expected format.
-   * 
-   * @private
-   * @param {Error} error - Original error
-   * @returns {Error} Transformed error in expected format
-   */
-  _handleNetworkError(error) {
+
+
+  _enhanceError(error) {
     // Handle AbortError (timeout or manual abort)
     if (error.name === 'AbortError') {
       const timeoutError = new Error('Request timed out');
@@ -461,34 +454,18 @@ class WgerApiClient {
       timeoutError.request = {};
       return timeoutError;
     }
-    
-    // Handle network/connection errors (but not AbortError which was handled above)
-    if (error && error.name !== 'AbortError' && (error.cause || error.message?.includes('fetch') || error.code)) {
-      const networkError = new Error('Network Error');
+
+    // Handle network/connection errors
+    if (error && (error.cause || error.message?.includes('fetch') || error.code)) {
+      const networkError = new Error(STATUS.MESSAGES.NO_RESPONSE);
       networkError.code = error.code || 'ECONNREFUSED';
+      networkError.name = 'NetworkError';
       networkError.request = {};
       return networkError;
     }
-    
-    // Re-throw other errors (including HTTP errors we created above)
-    return error;
-  }
 
-  /**
-   * Enhances a fetch error with additional context and consistent format.
-   * 
-   * @private
-   * @param {Error} error - Original fetch error
-   * @returns {Error} Enhanced error with status code and response data
-   */
-  _enhanceError(error) {
-    // If the error has already been transformed by _handleNetworkError, return it directly
-    if (error.name === 'NetworkError' || error.code === 'ETIMEDOUT') {
-      return error;
-    }
-
+    // Handle HTTP response errors (4xx, 5xx)
     if (error.response) {
-      // HTTP response error (4xx, 5xx)
       const enhancedError = new Error(
         error.response.data.detail || error.response.statusText || STATUS.MESSAGES.API_REQUEST_FAILED
       );
@@ -496,28 +473,23 @@ class WgerApiClient {
       enhancedError.data = error.response.data;
       enhancedError.name = 'HttpResponseError';
       return enhancedError;
-    } else if (error.request) {
+    }
 
-      // Network error (no response received)
-      const enhancedError = new Error(STATUS.MESSAGES.NO_RESPONSE);
-      enhancedError.code = error.code;
-      enhancedError.name = 'NetworkError';
-      return enhancedError;
-    } else {
-      // Map Cockatiel circuit breaker errors to expected naming convention
-      if (error.constructor && error.constructor.name === 'BrokenCircuitError') {
-        error.name = 'CircuitBreakerOpenError';
-        // Normalize message to match expected format
-        error.message = 'Circuit breaker is open - too many recent failures';
-        return error;
-      } else if (error.name && (error.name.includes('CircuitBreaker') || error.name.includes('Cockatiel'))) {
-        // Preserve other Cockatiel error types
-        return error;
-      }
-      // Request setup error
-      error.name = error.name || 'RequestSetupError';
+    // Handle Cockatiel circuit breaker errors
+    if (error.constructor && error.constructor.name === 'BrokenCircuitError') {
+      error.name = 'CircuitBreakerOpenError';
+      error.message = 'Circuit breaker is open - too many recent failures';
       return error;
     }
+
+    // Preserve other Cockatiel error types
+    if (error.name && (error.name.includes('CircuitBreaker') || error.name.includes('Cockatiel'))) {
+      return error;
+    }
+
+    // Default to Request setup error
+    error.name = error.name || 'RequestSetupError';
+    return error;
   }
 
   /**

@@ -210,6 +210,20 @@ class BaseNodeHandler {
       }
     }
   }
+
+  /**
+   * Helper method to create a standardized operation handler function.
+   * This function wraps the execution of an operation using an OperationRegistry.
+   *
+   * @static
+   * @param {OperationRegistry} operationRegistry - The registry containing all operations for a node type.
+   * @returns {Function} An async function (client, operation, payload) => Promise<*>
+   */
+  static createOperationHandler(operationRegistry) {
+    return async (client, operation, payload) => {
+      return await operationRegistry.execute(operation, client, payload);
+    };
+  }
 }
 
 module.exports = BaseNodeHandler;

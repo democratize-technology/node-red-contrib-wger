@@ -309,14 +309,7 @@ class InputValidator {
    * @returns {z.ZodType} Zod date schema
    */
   static _buildDateSchema(fieldName, _schema) {
-    return z.coerce.date({
-      errorMap: (issue, ctx) => {
-        if (issue.code === 'invalid_date') {
-          return { message: `Field '${fieldName}' must be a valid date` };
-        }
-        return { message: issue.message || `Field '${fieldName}' must be a valid date` };
-      }
-    }).transform(date => date.toISOString());
+    return z.coerce.date().transform(date => date.toISOString());
   }
 
   /**

@@ -1,6 +1,7 @@
 const BaseNodeHandler = require('../utils/base-node-handler');
 const InputValidator = require('../utils/input-validator');
 const validationSchemas = require('../utils/validation-schemas');
+const { STATUS } = require('../utils/constants');
 
 module.exports = function (RED) {
   function WgerApiNode(config) {

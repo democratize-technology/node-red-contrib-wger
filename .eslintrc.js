@@ -15,8 +15,8 @@ module.exports = {
   rules: {
     // Code quality - Changed to warn to unblock CI
     'no-unused-vars': ['warn', { 
-      argsIgnorePattern: '^_',
-      varsIgnorePattern: '^(should|BaseNodeHandler|_)$' // Allow should.js and temporary BaseNodeHandler
+      argsIgnorePattern: '^(_|should|BaseNodeHandler|res)',
+      varsIgnorePattern: '^(should|BaseNodeHandler|_.*)$' // Allow should.js and temporary BaseNodeHandler
     }],
     'no-console': 'warn',
     'prefer-const': 'error',

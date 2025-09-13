@@ -45,12 +45,17 @@ class SystemSanitizationProvider {
    */
   sanitizeHtml(value, options = {}) {
     const domPurify = this._getDOMPurify();
-    return domPurify.sanitize(value, {
+    const sanitizeOptions = {
       ALLOWED_TAGS: ['b', 'i', 'u', 'strong', 'em', 'br', 'p', 'span'],
       ALLOWED_ATTR: ['class', 'id'],
-      KEEP_CONTENT: true,
-      ...options
-    });
+      KEEP_CONTENT: true
+    };
+    for (const key in options) {
+      if (Object.prototype.hasOwnProperty.call(options, key)) {
+        sanitizeOptions[key] = options[key];
+      }
+    }
+    return domPurify.sanitize(value, sanitizeOptions);
   }
 
   /**
@@ -72,10 +77,13 @@ class SystemSanitizationProvider {
       yahoo_lowercase: true,
       yahoo_remove_subaddress: false,
       icloud_lowercase: true,
-      icloud_remove_subaddress: false,
-      ...options
+      icloud_remove_subaddress: false
     };
-
+    for (const key in options) {
+      if (Object.prototype.hasOwnProperty.call(options, key)) {
+        defaultOptions[key] = options[key];
+      }
+    }
     return validator.normalizeEmail(email, defaultOptions);
   }
 
@@ -123,14 +131,7 @@ class MockSanitizationProvider {
     this._emailResults.set(input, output);
   }
 
-  /**
-   * Mocks HTML sanitization.
-   * 
-   * @param {string} value - Value to sanitize
-   * @param {Object} [options={}] - Sanitization options
-   * @returns {string} Mocked sanitized value
-   */
-  sanitizeHtml(value, options = {}) {
+  sanitizeHtml(value, _options = {}) {
     if (this._htmlResults.has(value)) {
       return this._htmlResults.get(value);
     }
@@ -145,7 +146,7 @@ class MockSanitizationProvider {
    * @param {Object} [options={}] - Normalization options
    * @returns {string} Mocked normalized email
    */
-  normalizeEmail(email, options = {}) {
+  normalizeEmail(email, _options = {}) {
     if (this._emailResults.has(email)) {
       return this._emailResults.get(email);
     }
@@ -195,7 +196,7 @@ class PassThroughSanitizationProvider {
    * @param {Object} [options={}] - Sanitization options (ignored)
    * @returns {string} Minimally sanitized value
    */
-  sanitizeHtml(value, options = {}) {
+  sanitizeHtml(value, _options = {}) {
     // Remove script tags only for basic safety
     return value.replace(/<script[\s\S]*?<\/script>/gi, '');
   }
@@ -207,7 +208,7 @@ class PassThroughSanitizationProvider {
    * @param {Object} [options={}] - Normalization options (ignored)
    * @returns {string} Lowercased email
    */
-  normalizeEmail(email, options = {}) {
+  normalizeEmail(email, _options = {}) {
     return email.toLowerCase();
   }
 

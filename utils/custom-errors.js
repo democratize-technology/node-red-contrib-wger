@@ -58,5 +58,5 @@ module.exports = {
   WgerError,
   MissingOperationError,
   InvalidOperationError,
-  RequiredFieldError,
+  RequiredFieldError
 };

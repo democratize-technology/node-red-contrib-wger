@@ -79,5 +79,5 @@ function isDevEnvironment(urlString) {
 module.exports = {
   validateUrl,
   validateUrlSync,
-  isDevEnvironment,
+  isDevEnvironment
 };

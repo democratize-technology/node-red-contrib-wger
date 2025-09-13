@@ -82,7 +82,7 @@ class OperationBuilders {
    */
   static listOperation(endpoint, options = {}, validationSchema = null) {
     return async (client, payload) => {
-      const originalPayload = { ...payload };
+
       
       // Apply validation if schema provided
       if (validationSchema) {

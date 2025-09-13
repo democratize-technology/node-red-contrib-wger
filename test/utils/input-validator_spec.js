@@ -241,14 +241,14 @@ describe('InputValidator', function() {
       try {
         InputValidator.validatePayload({ muscles: [] }, schema);
       } catch (error) {
-        console.log('Error for too few items:', error.message);
+        // console.log('Error for too few items:', error.message);
       }
       
       // Too many items
       try {
         InputValidator.validatePayload({ muscles: [1, 2, 3, 4, 5, 6] }, schema);
       } catch (error) {
-        console.log('Error for too many items:', error.message);
+        // console.log('Error for too many items:', error.message);
       }
     });
   });

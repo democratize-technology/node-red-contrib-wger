@@ -8,7 +8,7 @@
  * @author Node-RED wger contrib team
  */
 
-const validator = require('validator');
+
 const { z } = require('zod');
 const sanitizationProviderFactory = require('./sanitization-provider').default;
 
@@ -213,7 +213,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod string schema
    */
-  static _buildStringSchema(fieldName, _schema) {
+  static _buildStringSchema(fieldName, schema) { // eslint-disable-line no-unused-vars
     return z.union([
       z.string(),
       z.number().transform(val => String(val)),
@@ -235,7 +235,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod number schema
    */
-  static _buildNumberSchema(fieldName, _schema) {
+  static _buildNumberSchema(fieldName, schema) { // eslint-disable-line no-unused-vars
     return z.union([
       z.number(),
       z.string().transform((val, ctx) => {
@@ -260,7 +260,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod integer schema
    */
-  static _buildIntegerSchema(fieldName, _schema) {
+  static _buildIntegerSchema(fieldName, schema) { // eslint-disable-line no-unused-vars
     return z.union([
       z.number().int(),
       z.string().transform((val, ctx) => {
@@ -285,7 +285,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod boolean schema
    */
-  static _buildBooleanSchema(fieldName, _schema) {
+  static _buildBooleanSchema(fieldName, schema) { // eslint-disable-line no-unused-vars
     return z.union([
       z.boolean(),
       z.string().transform((val, ctx) => {
@@ -308,7 +308,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod date schema
    */
-  static _buildDateSchema(fieldName, _schema) {
+  static _buildDateSchema(fieldName, schema) { // eslint-disable-line no-unused-vars
     return z.coerce.date().transform(date => date.toISOString());
   }
 
@@ -320,7 +320,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod email schema
    */
-  static _buildEmailSchema(fieldName, _schema) {
+  static _buildEmailSchema(fieldName, schema) { // eslint-disable-line no-unused-vars
     return z.string()
       .email(`Field '${fieldName}' must be a valid email address`)
       .transform(val => this._sanitizationProvider.normalizeEmail(val) || val);
@@ -334,7 +334,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod URL schema
    */
-  static _buildUrlSchema(fieldName, _schema) {
+  static _buildUrlSchema(fieldName, schema) { // eslint-disable-line no-unused-vars
     return z.string().url(`Field '${fieldName}' must be a valid URL with protocol`);
   }
 
@@ -346,7 +346,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod array schema
    */
-  static _buildArraySchema(fieldName, _schema) {
+  static _buildArraySchema(fieldName, schema) { // eslint-disable-line no-unused-vars
     return z.array(z.any(), {
       invalid_type_error: `Field '${fieldName}' must be an array`,
       required_error: `Required field '${fieldName}' is missing or null`
@@ -361,7 +361,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod object schema
    */
-  static _buildObjectSchema(fieldName, _schema) {
+  static _buildObjectSchema(fieldName, schema) { // eslint-disable-line no-unused-vars
     return z.object({}).passthrough()
       .refine(val => val !== null && !Array.isArray(val), {
         message: `Field '${fieldName}' must be an object`
@@ -376,7 +376,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod ID schema
    */
-  static _buildIdSchema(fieldName, _schema) {
+  static _buildIdSchema(fieldName, schema) { // eslint-disable-line no-unused-vars
     return z.union([
       z.string(),
       z.number().int()
@@ -414,7 +414,7 @@ class InputValidator {
    * @param {Object} schema - Schema configuration
    * @returns {z.ZodType} Zod any schema
    */
-  static _buildAnySchema(_fieldName, _schema) {
+  static _buildAnySchema(fieldName, schema) { // eslint-disable-line no-unused-vars
     return z.any();
   }
 
@@ -426,7 +426,7 @@ class InputValidator {
    * @returns {z.ZodType} Enhanced Zod schema
    * @private
    */
-  static _applyValidationRules(zodSchema, schema, fieldName) {
+  static _applyValidationRules(zodSchema, schema, fieldName) { // eslint-disable-line no-unused-vars
     // Apply type-specific validations
     if (schema.type === this.TYPES.STRING) {
       zodSchema = this._applyStringValidations(zodSchema, schema, fieldName);
@@ -455,7 +455,7 @@ class InputValidator {
    * @param {string} fieldName - Field name for error messages
    * @returns {z.ZodType} Enhanced schema with string validations
    */
-  static _applyStringValidations(zodSchema, schema, fieldName) {
+  static _applyStringValidations(zodSchema, schema, fieldName) { // eslint-disable-line no-unused-vars
     // Length validation
     if (schema.minLength !== undefined) {
       zodSchema = zodSchema.refine(
@@ -515,7 +515,7 @@ class InputValidator {
    * @param {string} fieldName - Field name for error messages
    * @returns {z.ZodType} Enhanced schema with number validations
    */
-  static _applyNumberValidations(zodSchema, schema, fieldName) {
+  static _applyNumberValidations(zodSchema, schema, fieldName) { // eslint-disable-line no-unused-vars
     if (schema.min !== undefined) {
       zodSchema = zodSchema.refine(
         (val) => val >= schema.min,
@@ -549,7 +549,7 @@ class InputValidator {
    * @param {string} fieldName - Field name for error messages
    * @returns {z.ZodType} Enhanced schema with array validations
    */
-  static _applyArrayValidations(zodSchema, schema, fieldName) {
+  static _applyArrayValidations(zodSchema, schema, fieldName) { // eslint-disable-line no-unused-vars
     if (schema.minItems !== undefined) {
       zodSchema = zodSchema.refine(
         (val) => val.length >= schema.minItems,
@@ -593,7 +593,7 @@ class InputValidator {
    * @param {string} fieldName - Field name for error messages
    * @returns {z.ZodType} Enhanced schema with common validations
    */
-  static _applyCommonValidations(zodSchema, schema, fieldName) {
+  static _applyCommonValidations(zodSchema, schema, fieldName) { // eslint-disable-line no-unused-vars
     // Enum validation
     if (schema.enum) {
       zodSchema = zodSchema.refine(
@@ -631,7 +631,7 @@ class InputValidator {
     }
     
     // Enhanced XSS protection using configured sanitization provider
-    let sanitized = this._sanitizationProvider.sanitizeHtml(value, {
+    const sanitized = this._sanitizationProvider.sanitizeHtml(value, {
       ALLOWED_TAGS: [], // No HTML tags allowed by default
       ALLOWED_ATTR: [],
       KEEP_CONTENT: true, // Keep text content, remove tags
@@ -722,7 +722,7 @@ class InputValidator {
    * @returns {string} Formatted error message
    * @private
    */
-  static _formatZodError(issue, fieldName, schema = null) {
+  static _formatZodError(issue, fieldName, schema = null) { // eslint-disable-line no-unused-vars
     // Prioritize custom error messages set directly in the Zod schema
     if (issue.message && !issue.message.startsWith('Invalid input')) {
       return issue.message;

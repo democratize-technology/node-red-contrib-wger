@@ -437,7 +437,7 @@ describe('wger-config Node', function () {
         helper.request()
           .get('/wger-config/n1/test') // GET instead of POST
           .expect(404) // Should not be found or method not allowed
-          .end(function(err, _res) {
+          .end(function(err, res) {
             if (err) {
               return done(err);
             }
@@ -462,7 +462,7 @@ describe('wger-config Node', function () {
               res.status.should.be.greaterThan(399);
             }
           })
-          .end(function(err, res) {
+          .end(function(err, _res) {
             if (err) {
               return done(err);
             }

@@ -401,12 +401,15 @@ class WgerApiClient {
    * @returns {Promise<*>} Parsed response data
    */
   async _parseResponseData(response) {
+    const text = await response.text();
+    if (!text) {
+      return {}; // No content, return empty object
+    }
     try {
-      const text = await response.text();
-      return text ? JSON.parse(text) : {};
-    } catch {
-      // If JSON parsing fails, return empty object
-      return {};
+      return JSON.parse(text);
+    } catch (error) {
+      // If JSON parsing fails, throw a more specific error
+      throw new Error(`Failed to parse response as JSON: ${error.message}. Response text: ${text.substring(0, 200)}...`);
     }
   }
 

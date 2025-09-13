@@ -21,13 +21,11 @@ const exerciseOperations = {
   ),
   
   // Search exercises by term
-  searchExercises: OperationBuilders.customOperation(
-    ['term'],
-    async (client, payload) => {
-      return await client.get(API.ENDPOINTS.EXERCISE_SEARCH, {
-        term: payload.term,
-        language: payload.language || DEFAULTS.LANGUAGE
-      });
+  searchExercises: OperationBuilders.listOperation(
+    API.ENDPOINTS.EXERCISE_SEARCH,
+    {
+      term: 'term',
+      language: payload => payload.language || DEFAULTS.LANGUAGE
     },
     validationSchemas.exercise.searchExercises
   ),
@@ -40,35 +38,29 @@ const exerciseOperations = {
   ),
   
   // Search exercise by barcode
-  getExerciseByBarcode: OperationBuilders.customOperation(
-    ['barcode'],
-    async (client, payload) => {
-      return await client.get(API.ENDPOINTS.EXERCISE_SEARCH, {
-        term: payload.barcode,
-        type: 'barcode'
-      });
+  getExerciseByBarcode: OperationBuilders.listOperation(
+    API.ENDPOINTS.EXERCISE_SEARCH,
+    {
+      term: 'barcode',
+      type: () => 'barcode'
     },
     validationSchemas.exercise.getExerciseByBarcode
   ),
   
   // Get exercise images
-  getExerciseImages: OperationBuilders.customOperation(
-    ['exerciseId'],
-    async (client, payload) => {
-      return await client.get(API.ENDPOINTS.EXERCISE_IMAGES, {
-        exercise_base: payload.exerciseId
-      });
+  getExerciseImages: OperationBuilders.listOperation(
+    API.ENDPOINTS.EXERCISE_IMAGES,
+    {
+      exercise_base: 'exerciseId'
     },
     validationSchemas.exercise.getExerciseImages
   ),
   
   // Get exercise comments
-  getExerciseComments: OperationBuilders.customOperation(
-    ['exerciseId'],
-    async (client, payload) => {
-      return await client.get(API.ENDPOINTS.EXERCISE_COMMENTS, {
-        exercise: payload.exerciseId
-      });
+  getExerciseComments: OperationBuilders.listOperation(
+    API.ENDPOINTS.EXERCISE_COMMENTS,
+    {
+      exercise: 'exerciseId'
     },
     validationSchemas.exercise.getExerciseComments
   ),

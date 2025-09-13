@@ -482,6 +482,11 @@ class WgerApiClient {
    * @returns {Error} Enhanced error with status code and response data
    */
   _enhanceError(error) {
+    // If the error has already been transformed by _handleNetworkError, return it directly
+    if (error.name === 'NetworkError' || error.code === 'ETIMEDOUT') {
+      return error;
+    }
+
     if (error.response) {
       // HTTP response error (4xx, 5xx)
       const enhancedError = new Error(
@@ -505,9 +510,8 @@ class WgerApiClient {
         // Normalize message to match expected format
         error.message = 'Circuit breaker is open - too many recent failures';
         return error;
-      }
-      // Preserve other Cockatiel error types
-      if (error.name && (error.name.includes('CircuitBreaker') || error.name.includes('Cockatiel'))) {
+      } else if (error.name && (error.name.includes('CircuitBreaker') || error.name.includes('Cockatiel'))) {
+        // Preserve other Cockatiel error types
         return error;
       }
       // Request setup error

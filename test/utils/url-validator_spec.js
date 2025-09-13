@@ -100,19 +100,19 @@ describe('URL Validator Security Tests', function() {
     it('should block 10.x.x.x private range', async function() {
       const result = await validateUrl('http://10.0.0.1');
       result.should.have.property('valid', false);
-      result.errors[0].should.containEql('Private IP range (RFC 1918)');
+      result.errors[0].should.containEql('Blocked IP range');
     });
     
     it('should block 172.16-31.x.x private range', async function() {
       const result = await validateUrl('http://172.20.0.1');
       result.should.have.property('valid', false);
-      result.errors[0].should.containEql('Private IP range (RFC 1918)');
+      result.errors[0].should.containEql('Blocked IP range');
     });
     
     it('should block 192.168.x.x private range', async function() {
       const result = await validateUrl('http://192.168.1.1');
       result.should.have.property('valid', false);
-      result.errors[0].should.containEql('Private IP range (RFC 1918)');
+      result.errors[0].should.containEql('Blocked IP range');
     });
     
     it('should allow private IPs in development mode with warning', async function() {
@@ -339,7 +339,7 @@ describe('URL Validator Security Tests', function() {
     it('should block private IPs synchronously', function() {
       const result = validateUrlSync('http://192.168.1.1');
       result.should.have.property('valid', false);
-      result.errors[0].should.containEql('Private IP range');
+      result.errors[0].should.containEql('Blocked IP range');
     });
     
     it('should validate protocols synchronously', function() {

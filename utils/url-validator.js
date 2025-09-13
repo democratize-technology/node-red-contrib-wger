@@ -143,43 +143,17 @@ function checkIpRestrictions(ip) {
       // Check IPv4 ranges
       const ipv4 = addr;
       
-      // Loopback (127.0.0.0/8)
-      if (ipv4.match(ipaddr.IPv4.parse('127.0.0.1'), 8)) {
-        return { blocked: true, reason: 'Loopback address' };
-      }
-      // Private ranges (RFC 1918)
-      if (ipv4.match(ipaddr.IPv4.parse('10.0.0.0'), 8)) {
-        return { blocked: true, reason: 'Private IP range (RFC 1918): 10.0.0.0/8' };
-      }
-      if (ipv4.match(ipaddr.IPv4.parse('172.16.0.0'), 12)) {
-        return { blocked: true, reason: 'Private IP range (RFC 1918): 172.16.0.0/12' };
-      }
-      if (ipv4.match(ipaddr.IPv4.parse('192.168.0.0'), 16)) {
-        return { blocked: true, reason: 'Private IP range (RFC 1918): 192.168.0.0/16' };
-      }
-      // Link-local (169.254.0.0/16)
-      if (ipv4.match(ipaddr.IPv4.parse('169.254.0.0'), 16)) {
-        return { blocked: true, reason: 'Blocked IP range: 169.254.0.0/16' };
-      }
-      // Current network (0.0.0.0/8)
-      if (ipv4.match(ipaddr.IPv4.parse('0.0.0.0'), 8)) {
-        return { blocked: true, reason: 'Blocked IP range: 0.0.0.0/8' };
-      }
-      // Shared address space (100.64.0.0/10)
-      if (ipv4.match(ipaddr.IPv4.parse('100.64.0.0'), 10)) {
-        return { blocked: true, reason: 'Blocked IP range: 100.64.0.0/10' };
-      }
-      // Multicast (224.0.0.0/4)
-      if (ipv4.match(ipaddr.IPv4.parse('224.0.0.0'), 4)) {
-        return { blocked: true, reason: 'Blocked IP range: 224.0.0.0/4' };
-      }
-      // Reserved (240.0.0.0/4)
-      if (ipv4.match(ipaddr.IPv4.parse('240.0.0.0'), 4)) {
-        return { blocked: true, reason: 'Blocked IP range: 240.0.0.0/4' };
+      // Check IPv4 ranges
+      for (const range of SECURITY_CONFIG.PRIVATE_IPV4_RANGES) {
+        const [ip, cidr] = range.split('/');
+        if (addr.match(ipaddr.IPv4.parse(ip), parseInt(cidr, 10))) {
+          return { blocked: true, reason: `Blocked IP range: ${range}` };
+        }
       }
     } else if (addr.kind() === 'ipv6') {
       // Check IPv6 ranges using ipaddr.js built-in range detection
       const range = addr.range();
+
       
       if (range === 'loopback') {
         return { blocked: true, reason: 'IPv6 localhost address' };

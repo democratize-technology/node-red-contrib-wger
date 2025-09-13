@@ -3,6 +3,7 @@
  */
 
 const should = require('should');
+const InputValidator = require('../../utils/input-validator');
 const _sinon = require('sinon');
 const helper = require('node-red-node-test-helper');
 const { testHelper } = require('../test-helper');
@@ -352,18 +353,16 @@ describe('Input Validation Security Tests', function() {
       calledWith.weight.should.be.type('number');
     });
     
-    it('should reject non-numeric strings for number fields', async function() {
-      const payload = {
-        weight: 'not-a-number',
-        date: new Date().toISOString()
+    it('should reject non-numeric strings for number fields', function() {
+      const schema = {
+        weight: {
+          type: InputValidator.TYPES.NUMBER,
+          required: true
+        }
       };
-      
-      try {
-        await weightOperations.createWeightEntry(mockApiClient, payload);
-        should.fail('Should have thrown validation error');
-      } catch (error) {
-        error.message.should.containEql('must be a valid number');
-      }
+      should.throws(() => {
+        InputValidator.validatePayload({ weight: 'not-a-number' }, schema);
+      }, /has an invalid type/);
     });
   });
 

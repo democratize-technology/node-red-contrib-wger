@@ -227,7 +227,7 @@ class InputValidator {
       }
     }).refine((val) => {
       // Path traversal check
-      if (val.includes('../') || val.includes('..\\')) {
+      if (typeof val === 'string' && (val.includes('../') || val.includes('..\\'))) {
         return false;
       }
       return true;
@@ -337,21 +337,14 @@ class InputValidator {
    * @returns {z.ZodType} Zod date schema
    */
   static _buildDateSchema(fieldName, _schema) {
-    return z.union([
-      z.date().transform(date => {
-        if (isNaN(date.getTime())) {
-          throw new Error(`Field '${fieldName}' contains invalid date`);
+    return z.coerce.date({
+      errorMap: (issue, ctx) => {
+        if (issue.code === 'invalid_date') {
+          return { message: `Field '${fieldName}' must be a valid date` };
         }
-        return date.toISOString();
-      }),
-      z.string().refine((val) => {
-        const date = new Date(val);
-        if (isNaN(date.getTime())) {
-          return false;
-        }
-        return true;
-      }, { message: `Field '${fieldName}' must be a valid date string` })
-    ]);
+        return { message: issue.message || `Field '${fieldName}' must be a valid date` };
+      }
+    }).transform(date => date.toISOString());
   }
 
   /**
@@ -364,7 +357,7 @@ class InputValidator {
    */
   static _buildEmailSchema(fieldName, _schema) {
     return z.string()
-      .email({ message: `Field '${fieldName}' must be a valid email address` })
+      .email(`Field '${fieldName}' must be a valid email address`)
       .transform(val => this._sanitizationProvider.normalizeEmail(val) || val);
   }
 
@@ -377,10 +370,7 @@ class InputValidator {
    * @returns {z.ZodType} Zod URL schema
    */
   static _buildUrlSchema(fieldName, _schema) {
-    return z.string().url({ message: `Field '${fieldName}' must be a valid URL with protocol` })
-      .refine(val => validator.isURL(val, { require_protocol: true }), {
-        message: `Field '${fieldName}' must be a valid URL with protocol`
-      });
+    return z.string().url(`Field '${fieldName}' must be a valid URL with protocol`);
   }
 
   /**
@@ -583,6 +573,8 @@ class InputValidator {
     return zodSchema;
   }
 
+
+
   /**
    * Applies array-specific validation rules including length constraints and item validation.
    * 
@@ -766,70 +758,27 @@ class InputValidator {
    * @private
    */
   static _formatZodError(issue, fieldName, schema = null) {
-    // Map Zod error codes to our expected messages
+    // Prioritize custom error messages set directly in the Zod schema
+    if (issue.message && !issue.message.startsWith('Invalid input')) {
+      return issue.message;
+    }
+
     switch (issue.code) {
     case 'invalid_type':
-      if (issue.expected === 'string') {
-        return `Field '${fieldName}' must be a string, got ${issue.received}`;
-      }
-      if (issue.expected === 'number') {
-        // Check if this is an integer field by looking at the schema
-        if (schema && schema.type === InputValidator.TYPES.INTEGER) {
-          return `Field '${fieldName}' must be an integer`;
-        }
-        return `Field '${fieldName}' must be a valid number`;
-      }
-      if (issue.expected === 'boolean') {
-        return `Field '${fieldName}' must be a boolean`;
-      }
-      if (issue.expected === 'array') {
-        return `Field '${fieldName}' must be an array`;
-      }
-      if (issue.expected === 'object') {
-        return `Field '${fieldName}' must be an object`;
-      }
-      return issue.message;
+      return `Field '${fieldName}' must be a ${issue.expected}, got ${issue.received}`;
     case 'invalid_union':
-      // Check if this is an integer field first - integer unions should always say "must be an integer"
-      if (schema && schema.type === InputValidator.TYPES.INTEGER) {
-        return `Field '${fieldName}' must be an integer`;
-      }
-        
-      // Check if this union has a custom error message from errorMap
+      // If a custom message is already provided by errorMap, use it
       if (issue.message && !issue.message.startsWith('Invalid input')) {
         return issue.message;
       }
-        
-      // Handle union type errors more specifically
-      if (issue.errors && issue.errors[0] && issue.errors[0][0]) {
-        const firstError = issue.errors[0][0];
+      // Fallback for union types, try to get a more specific message from the first error
+      if (issue.errors && issue.errors.length > 0) {
+        const firstError = issue.errors[0];
         if (firstError.code === 'invalid_type') {
-          const expectedType = firstError.expected;
-          const receivedType = firstError.message.includes('received object') ? 'object' :
-            firstError.message.includes('received array') ? 'array' :
-              firstError.message.includes('received null') ? 'null' :
-                firstError.message.includes('received undefined') ? 'undefined' :
-                  'unknown';
-            
-          if (expectedType === 'string') {
-            return `Field '${fieldName}' must be a string, got ${receivedType}`;
-          }
-          if (expectedType === 'int') {
-            return `Field '${fieldName}' must be an integer`;
-          }
-          if (expectedType === 'number') {
-            return `Field '${fieldName}' must be a valid number`;
-          }
-          if (expectedType === 'boolean') {
-            return `Field '${fieldName}' must be a boolean`;
-          }
-          if (expectedType === 'array') {
-            return `Field '${fieldName}' must be an array`;
-          }
-          return `Field '${fieldName}' must be ${expectedType}, got ${receivedType}`;
+          return `Field '${fieldName}' must be a ${firstError.expected}, got ${firstError.received}`;
         }
       }
-      return `Field '${fieldName}' has invalid type`;
+      return `Field '${fieldName}' has an invalid type`;
     case 'too_small':
       if (issue.type === 'string') {
         return `Field '${fieldName}' must be at least ${issue.minimum} characters`;
@@ -858,13 +807,8 @@ class InputValidator {
       }
       return issue.message;
     case 'custom':
-      // Return custom error messages as-is
       return issue.message;
     default:
-      // Check if the message already contains the expected format
-      if (issue.message && !issue.message.startsWith('Invalid input')) {
-        return issue.message;
-      }
       return `Field '${fieldName}' validation failed: ${issue.message}`;
     }
   }

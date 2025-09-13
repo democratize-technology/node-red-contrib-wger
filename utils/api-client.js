@@ -493,10 +493,7 @@ class WgerApiClient {
       enhancedError.name = 'HttpResponseError';
       return enhancedError;
     } else if (error.request) {
-      // Check if it's already a timeout error (has the right code and message)
-      if (error.code === 'ETIMEDOUT' && error.message === 'Request timed out') {
-        return error; // Already properly formatted timeout error
-      }
+
       // Network error (no response received)
       const enhancedError = new Error(STATUS.MESSAGES.NO_RESPONSE);
       enhancedError.code = error.code;

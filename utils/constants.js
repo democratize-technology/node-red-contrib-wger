@@ -179,11 +179,12 @@ const DEFAULTS = {
  * @property {Object} FIELD_NAMES - Standard field names used in error messages
  */
 const ERRORS = {
-  MISSING_OPERATION: 'No operation specified',
-  INVALID_OPERATION: 'Invalid operation: {operation}',
-  MISSING_CONFIG: 'Missing server config',
-  
-  REQUIRED_FIELD: '{field} is required',
+  // Error Messages
+  // ERRORS: {
+  //   MISSING_OPERATION: 'Operation not specified.',
+  //   INVALID_OPERATION: 'Invalid or unsupported operation: {operation}',
+  //   REQUIRED_FIELD: 'Missing required field: {field}',
+  // },
   
   FIELD_NAMES: {
     ENTRY_ID: 'entryId',

@@ -8,7 +8,8 @@
  */
 
 const WgerApiClient = require('./api-client');
-const { STATUS, ERRORS } = require('./constants');
+const { STATUS } = require('./constants');
+const { MissingOperationError, InvalidOperationError, RequiredFieldError } = require('./custom-errors');
 
 /**
  * Base handler for common Node-RED node patterns in wger contrib nodes.
@@ -75,7 +76,7 @@ class BaseNodeHandler {
 
     if (!operation) {
       node.status({ fill: STATUS.COLORS.RED, shape: STATUS.SHAPES.RING, text: STATUS.MESSAGES.NO_OPERATION });
-      const error = new Error(ERRORS.MISSING_OPERATION);
+      const error = new MissingOperationError();
       // Always call done() if available (Node-RED 1.0+ best practice)
       // For backwards compatibility with pre-1.0, fallback to node.error()
       if (done) {
@@ -181,7 +182,7 @@ class BaseNodeHandler {
    * }
    */
   static throwInvalidOperationError(operation) {
-    throw new Error(ERRORS.INVALID_OPERATION.replace('{operation}', operation));
+    throw new InvalidOperationError(operation);
   }
 
   /**
@@ -206,7 +207,7 @@ class BaseNodeHandler {
     
     for (const param of params) {
       if (!payload[param]) {
-        throw new Error(ERRORS.REQUIRED_FIELD.replace('{field}', param));
+        throw new RequiredFieldError(param);
       }
     }
   }

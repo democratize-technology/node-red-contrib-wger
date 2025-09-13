@@ -9,7 +9,6 @@
 
 const WgerApiClient = require('./api-client');
 const { STATUS, ERRORS } = require('./constants');
-const { formatString } = require('./string-utils');
 
 /**
  * Base handler for common Node-RED node patterns in wger contrib nodes.
@@ -182,7 +181,7 @@ class BaseNodeHandler {
    * }
    */
   static throwInvalidOperationError(operation) {
-    throw new Error(formatString(ERRORS.INVALID_OPERATION, { operation }));
+    throw new Error(ERRORS.INVALID_OPERATION.replace('{operation}', operation));
   }
 
   /**
@@ -207,7 +206,7 @@ class BaseNodeHandler {
     
     for (const param of params) {
       if (!payload[param]) {
-        throw new Error(formatString(ERRORS.REQUIRED_FIELD, { field: param }));
+        throw new Error(ERRORS.REQUIRED_FIELD.replace('{field}', param));
       }
     }
   }

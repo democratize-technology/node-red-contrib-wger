@@ -23,8 +23,7 @@
  */
 
 /**
- * Optimized weight statistics calculator with efficient algorithms
- * and support for incremental updates.
+ * Optimized weight statistics calculator with efficient algorithms.
  * 
  * @class WeightStatsCalculator
  */
@@ -266,49 +265,6 @@ class WeightStatsCalculator {
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   }
   
-  /**
-   * Performs incremental update to existing statistics
-   * More efficient than recalculating everything
-   * 
-   * @static
-   * @param {WeightStats} existingStats - Existing statistics
-   * @param {Object} newEntry - New weight entry to add
-   * @returns {WeightStats} Updated statistics
-   */
-  static incrementalUpdate(existingStats, newEntry) {
-    if (!existingStats) {
-      return this.calculate([newEntry]);
-    }
-    
-    const newWeight = newEntry.weight;
-    const newCount = existingStats.count + 1;
-    
-    // Update basic stats
-    const newMin = Math.min(existingStats.min, newWeight);
-    const newMax = Math.max(existingStats.max, newWeight);
-    const newSum = existingStats.avg * existingStats.count + newWeight;
-    const newAvg = newSum / newCount;
-    
-    // Update latest (assuming new entry is most recent)
-    const newLatest = newWeight;
-    const newChange = newLatest - existingStats.oldest;
-    const newChangePercent = existingStats.oldest !== 0 
-      ? (newChange / existingStats.oldest * 100) 
-      : 0;
-    
-    return {
-      ...existingStats,
-      min: Math.round(newMin * 100) / 100,
-      max: Math.round(newMax * 100) / 100,
-      avg: Math.round(newAvg * 100) / 100,
-      latest: Math.round(newLatest * 100) / 100,
-      change: Math.round(newChange * 100) / 100,
-      changePercent: Math.round(newChangePercent * 100) / 100,
-      count: newCount,
-      // Note: trend, median, and other advanced stats would need full recalculation
-      _needsFullRecalc: true
-    };
-  }
 }
 
 module.exports = WeightStatsCalculator;

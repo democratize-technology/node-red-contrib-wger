@@ -184,9 +184,9 @@ class WgerApiClient {
    * @async
    * @param {string} method - HTTP method (GET, POST, PUT, PATCH, DELETE)
    * @param {string} endpoint - API endpoint path (may contain {param} placeholders)
-   * @param {*} [data=null] - Request body data (for POST, PUT, PATCH requests)
-   * @param {Object} [params=null] - URL parameters and path parameters
-   * @returns {Promise<*>} Response data from the API
+   * @param {Object|null} [data=null] - Request body data (for POST, PUT, PATCH requests)
+   * @param {Object<string, string|number>|null} [params=null] - URL parameters and path parameters
+   * @returns {Promise<Object>} Response data from the API
    * @throws {Error} Enhanced error with status code and response data
    * 
    * @example

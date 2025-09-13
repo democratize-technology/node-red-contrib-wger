@@ -1,6 +1,4 @@
 const BaseNodeHandler = require('../utils/base-node-handler');
-const WgerApiClient = require('../utils/api-client');
-const { STATUS } = require('../utils/constants');
 const InputValidator = require('../utils/input-validator');
 const validationSchemas = require('../utils/validation-schemas');
 
@@ -90,48 +88,8 @@ module.exports = function (RED) {
       return result;
     };
 
-    // Custom input handler for the API node (bypasses operation validation)
-    node.on('input', async function (msg, send, done) {
-      // Set initial node status
-      node.status({ fill: STATUS.COLORS.BLUE, shape: STATUS.SHAPES.DOT, text: STATUS.MESSAGES.REQUESTING });
-
-      try {
-        // Initialize Wger client
-        const client = new WgerApiClient(node.server.apiUrl, node.server.getAuthHeader(), node.server.getResilienceConfig());
-        
-        // Pass the entire message for processing
-        const result = await handleApiOperation(client, null, {
-          method: msg.method,
-          endpoint: msg.endpoint, 
-          payload: msg.payload,
-          query: msg.query,
-          params: msg.params
-        });
-
-        // Update status and send response
-        node.status({ fill: STATUS.COLORS.GREEN, shape: STATUS.SHAPES.DOT, text: STATUS.MESSAGES.SUCCESS });
-        msg.payload = result;
-        send(msg);
-
-        if (done) {
-          done();
-        }
-      } catch (error) {
-        node.status({ fill: STATUS.COLORS.RED, shape: STATUS.SHAPES.DOT, text: error.message });
-        // Always call done() if available (Node-RED 1.0+ best practice)
-        // For backwards compatibility with pre-1.0, fallback to node.error()
-        if (done) {
-          done(error);
-        } else {
-          node.error(error, msg);
-        }
-      }
-    });
-
-    // Set up close handler
-    node.on('close', function () {
-      node.status({});
-    });
+    // Setup node using base handler, passing the custom API operation handler
+    BaseNodeHandler.setupNode(RED, node, config, handleApiOperation);
   }
 
   RED.nodes.registerType('wger-api', WgerApiNode);

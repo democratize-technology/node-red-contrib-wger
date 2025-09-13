@@ -11,12 +11,10 @@ module.exports = function (RED) {
     const node = this;
 
     // Operation handler using the registry pattern
-    const handleUserOperation = async (client, operation, payload) => {
-      return await operationRegistry.execute(operation, client, payload);
-    };
+    const handleOperation = BaseNodeHandler.createOperationHandler(operationRegistry);
 
     // Setup node using base handler
-    BaseNodeHandler.setupNode(RED, node, config, handleUserOperation);
+    BaseNodeHandler.setupNode(RED, node, config, handleOperation);
   }
 
   RED.nodes.registerType('wger-user', WgerUserNode);

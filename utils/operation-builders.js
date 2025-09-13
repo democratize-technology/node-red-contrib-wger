@@ -7,8 +7,8 @@
  * @author Node-RED wger contrib team
  */
 
-const BaseNodeHandler = require('./base-node-handler');
 const InputValidator = require('./input-validator');
+const { z } = require('zod');
 
 /**
  * Factory class for creating common operation handlers.
@@ -112,13 +112,11 @@ class OperationBuilders {
    */
   static getByIdOperation(endpointTemplate, idField, validationSchema = null) {
     return async (client, payload) => {
-      // Apply validation if schema provided
-      if (validationSchema) {
-        payload = InputValidator.validatePayload(payload, validationSchema);
-      } else {
-        // Fallback to basic validation
-        BaseNodeHandler.validateRequired(payload, idField);
-      }
+      // Apply validation if schema provided, otherwise create a minimal schema for the ID field
+      const effectiveSchema = validationSchema || z.object({
+        [idField]: InputValidator._buildIdSchema(idField, { type: InputValidator.TYPES.ID, required: true })
+      });
+      payload = InputValidator.validatePayload(payload, effectiveSchema);
       
       const endpoint = endpointTemplate.replace('{id}', payload[idField]);
       return await client.get(endpoint);
@@ -199,13 +197,11 @@ class OperationBuilders {
    */
   static updateOperation(endpointTemplate, idField, method = 'patch', validationSchema = null) {
     return async (client, payload) => {
-      // Apply validation if schema provided
-      if (validationSchema) {
-        payload = InputValidator.validatePayload(payload, validationSchema);
-      } else {
-        // Fallback to basic validation
-        BaseNodeHandler.validateRequired(payload, idField);
-      }
+      // Apply validation if schema provided, otherwise create a minimal schema for the ID field
+      const effectiveSchema = validationSchema || z.object({
+        [idField]: InputValidator._buildIdSchema(idField, { type: InputValidator.TYPES.ID, required: true })
+      });
+      payload = InputValidator.validatePayload(payload, effectiveSchema);
       
       const updateData = { ...payload };
       delete updateData[idField];
@@ -235,13 +231,11 @@ class OperationBuilders {
    */
   static deleteOperation(endpointTemplate, idField, validationSchema = null) {
     return async (client, payload) => {
-      // Apply validation if schema provided
-      if (validationSchema) {
-        payload = InputValidator.validatePayload(payload, validationSchema);
-      } else {
-        // Fallback to basic validation
-        BaseNodeHandler.validateRequired(payload, idField);
-      }
+      // Apply validation if schema provided, otherwise create a minimal schema for the ID field
+      const effectiveSchema = validationSchema || z.object({
+        [idField]: InputValidator._buildIdSchema(idField, { type: InputValidator.TYPES.ID, required: true })
+      });
+      payload = InputValidator.validatePayload(payload, effectiveSchema);
       
       const endpoint = endpointTemplate.replace('{id}', payload[idField]);
       return await client.delete(endpoint);
@@ -295,8 +289,12 @@ class OperationBuilders {
       if (validationSchema) {
         payload = InputValidator.validatePayload(payload, validationSchema);
       } else if (requiredFields && requiredFields.length > 0) {
-        // Fallback to basic validation
-        BaseNodeHandler.validateRequired(payload, requiredFields);
+        // If no full schema, create a minimal one from requiredFields
+        const minimalSchema = requiredFields.reduce((acc, field) => {
+          acc[field] = { type: InputValidator.TYPES.STRING, required: true };
+          return acc;
+        }, {});
+        payload = InputValidator.validatePayload(payload, minimalSchema);
       }
       
       return await handler(client, payload);
@@ -335,13 +333,11 @@ class OperationBuilders {
    */
   static searchOperation(endpoint, searchField = 'term', additionalParams = {}, validationSchema = null) {
     return async (client, payload) => {
-      // Apply validation if schema provided
-      if (validationSchema) {
-        payload = InputValidator.validatePayload(payload, validationSchema);
-      } else {
-        // Fallback to basic validation
-        BaseNodeHandler.validateRequired(payload, searchField);
-      }
+      // Apply validation if schema provided, otherwise create a minimal schema for the search field
+      const effectiveSchema = validationSchema || z.object({
+        [searchField]: { type: InputValidator.TYPES.STRING, required: true }
+      });
+      payload = InputValidator.validatePayload(payload, effectiveSchema);
       
       const params = {
         [searchField]: payload[searchField],

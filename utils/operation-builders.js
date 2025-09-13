@@ -75,7 +75,7 @@ class OperationBuilders {
       const params = {};
       
       // Map payload properties to API parameters
-      // Only include params that were in the original payload or are from functions
+      // Only include params that are present in the validated payload or are derived from functions
       Object.entries(options).forEach(([key, value]) => {
         if (typeof value === 'function') {
           const result = value(payload);

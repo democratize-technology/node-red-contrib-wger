@@ -283,33 +283,7 @@ describe('Input Validation Security Tests', function() {
     });
   });
 
-  describe('SQL Injection Prevention', function() {
-    
-    it('should sanitize SQL injection attempts in search', async function() {
-      const payload = {
-        term: 'bench\' OR \'1\'=\'1'
-      };
-      
-      mockApiClient.get.resolves({ results: [] });
-      await exerciseOperations.searchExercises(mockApiClient, payload);
-      
-      const calledWith = mockApiClient.get.firstCall.args[1];
-      // The dangerous SQL should be sanitized
-      calledWith.term.should.not.match(/';|";/);
-    });
-    
-    it('should remove SQL comments from input', async function() {
-      const payload = {
-        term: 'bench press--DROP TABLE exercises'
-      };
-      
-      mockApiClient.get.resolves({ results: [] });
-      await exerciseOperations.searchExercises(mockApiClient, payload);
-      
-      const calledWith = mockApiClient.get.firstCall.args[1];
-      calledWith.term.should.not.containEql('--');
-    });
-  });
+
 
   describe('XSS Prevention', function() {
     

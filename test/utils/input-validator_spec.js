@@ -250,41 +250,9 @@ describe('InputValidator', function() {
       html.comment.should.equal('Bold text');
     });
 
-    it('should remove SQL injection patterns', function() {
-      const schema = {
-        query: {
-          type: InputValidator.TYPES.STRING,
-          required: true,
-          sanitize: true
-        }
-      };
-      
-      // SQL injection attempts
-      const sqlComment = InputValidator.validatePayload({ 
-        query: 'admin\'--' 
-      }, schema);
-      sqlComment.query.should.equal('admin\'');  // Only end -- is removed
-      
-      const sqlQuotes = InputValidator.validatePayload({ 
-        query: '\'; DROP TABLE users;' 
-      }, schema);
-      sqlQuotes.query.should.equal('; DROP TABLE users;');  // Quote+semicolon becomes just semicolon
-    });
 
-    it('should remove null bytes', function() {
-      const schema = {
-        field: {
-          type: InputValidator.TYPES.STRING,
-          required: true,
-          sanitize: true
-        }
-      };
-      
-      const result = InputValidator.validatePayload({ 
-        field: 'test\0hidden' 
-      }, schema);
-      result.field.should.equal('testhidden');
-    });
+
+
 
     it('should validate against path traversal in endpoints', function() {
       const schema = {

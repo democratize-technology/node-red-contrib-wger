@@ -681,15 +681,10 @@ class InputValidator {
       ...options
     });
 
-    // Remove potential SQL injection patterns more carefully
-    // Only remove dangerous patterns, not all quotes
-    sanitized = sanitized
-      .replace(/';|";/g, ';') // Replace quote+semicolon combinations  
-      .replace(/--/g, '') // Remove SQL comments (all -- patterns)
-      .replace(/\/\*.*?\*\//g, ''); // Remove C-style comments
 
-    // Remove null bytes
-    sanitized = sanitized.replace(/\0/g, '');
+
+
+
 
     return sanitized;
   }

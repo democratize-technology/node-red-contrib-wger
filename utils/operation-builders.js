@@ -82,7 +82,7 @@ class OperationBuilders {
           if (result !== undefined) {
             params[key] = result;
           }
-        } else if (originalPayload[value] !== undefined && payload[value] !== undefined) {
+        } else if (payload[value] !== undefined) {
           params[key] = payload[value];
         }
       });

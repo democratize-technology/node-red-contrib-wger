@@ -387,13 +387,7 @@ describe('URL Validator Security Tests', function() {
         _internal.isIpInRange('192.169.0.0', range).should.be.false();
       });
       
-      it('should convert IPs to numbers correctly', function() {
-        _internal.ipToNumber('192.168.1.1').should.equal(3232235777);
-        _internal.ipToNumber('10.0.0.1').should.equal(167772161);
-        _internal.ipToNumber('127.0.0.1').should.equal(2130706433);
-        _internal.ipToNumber('255.255.255.255').should.equal(4294967295);
-        _internal.ipToNumber('0.0.0.0').should.equal(0);
-      });
+
     });
     
     describe('Wildcard Domain Matching', function() {

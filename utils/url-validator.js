@@ -750,19 +750,7 @@ module.exports = {
         return false;
       }
     },
-    ipToNumber: (ip) => {
-      // Convert IPv4 to number for backward compatibility
-      try {
-        if (!ipaddr.IPv4.isValid(ip)) {
-          return 0;
-        }
-        const addr = ipaddr.IPv4.parse(ip);
-        // Calculate 32-bit number from octets
-        return (addr.octets[0] << 24) + (addr.octets[1] << 16) + (addr.octets[2] << 8) + addr.octets[3] >>> 0;
-      } catch {
-        return 0;
-      }
-    },
+
     matchesWildcardDomain,
     isLocalhost,
     isPrivateOrRestrictedIp: checkIpRestrictions,  // Map to new function

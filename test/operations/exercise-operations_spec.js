@@ -22,7 +22,9 @@ describe('Exercise Operations', function () {
       
       sinon.assert.calledOnce(client.get);
       sinon.assert.calledWith(client.get, '/api/v2/exercisebaseinfo/', {
-        language: 'en'
+        language: 'en',
+        limit: 20,
+        offset: 0
       });
     });
 
@@ -55,7 +57,9 @@ describe('Exercise Operations', function () {
       
       sinon.assert.calledOnce(client.get);
       sinon.assert.calledWith(client.get, '/api/v2/exercisebaseinfo/', {
-        language: 'de'
+        language: 'de',
+        limit: 20,
+        offset: 0
       });
     });
   });

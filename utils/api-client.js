@@ -438,8 +438,10 @@ class WgerApiClient {
           error.response.data = { message: text };
         }
       }
-    } catch {
-      // Ignore errors reading response body
+    } catch (readBodyError) {
+      // Log the error for debugging purposes, but continue without response data
+      console.warn('WgerApiClient: Failed to read response body for HTTP error', readBodyError);
+      error.response.data = { message: 'Failed to read response body' };
     }
     
     return error;

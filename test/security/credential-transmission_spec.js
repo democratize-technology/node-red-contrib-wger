@@ -7,36 +7,23 @@
 const should = require('should');
 const helper = require('node-red-node-test-helper');
 const sinon = require('sinon');
-const wgerConfigNode = require('../../nodes/wger-config');
+const proxyquire = require('proxyquire');
+
+const axiosStub = sinon.stub();
+const wgerConfigNode = proxyquire('../../nodes/wger-config', {
+  'axios': axiosStub
+});
 
 helper.init(require.resolve('node-red'));
 
 describe('Credential Transmission Security Tests', function() {
-  let axiosStub;
   
   beforeEach(function(done) {
-    // Mock axios to capture HTTP requests and verify credentials are not transmitted
-    axiosStub = sinon.stub().resolves({ status: 200, data: {} });
-    const Module = require('module');
-    if (!Module.prototype._originalRequire) {
-      Module.prototype._originalRequire = Module.prototype.require;
-    }
-    Module.prototype.require = function(...args) {
-      if (args[0] === 'axios') {
-        return axiosStub;
-      }
-      return Module.prototype._originalRequire.apply(this, args);
-    };
+    axiosStub.reset();
     helper.startServer(done);
   });
 
   afterEach(function(done) {
-    // Restore original require
-    const Module = require('module');
-    if (Module.prototype._originalRequire) {
-      Module.prototype.require = Module.prototype._originalRequire;
-      delete Module.prototype._originalRequire;
-    }
     sinon.restore();
     helper.unload();
     helper.stopServer(done);
@@ -340,6 +327,7 @@ describe('Credential Transmission Security Tests', function() {
   describe('SSRF Protection with Credential Security', function() {
     it('should validate URLs without transmitting credentials for invalid URLs', function(done) {
       const flow = [{ id: 'n1', type: 'wger-config' }];
+      axiosStub.resolves({ status: 200, data: {} });
 
       helper.load(wgerConfigNode, flow, function() {
         helper.request()
@@ -355,7 +343,7 @@ describe('Credential Transmission Security Tests', function() {
 
             res.body.should.have.property('success', false);
             res.body.should.have.property('message');
-            res.body.message.should.containEql('URL validation failed');
+            res.body.message.should.match(/URL validation failed/);
             
             // Should not make HTTP request for invalid URLs
             axiosStub.called.should.be.false();

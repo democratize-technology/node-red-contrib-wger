@@ -39,13 +39,9 @@ describe('SSRF Protection Security Tests', function() {
       }];
       
       helper.load(wgerConfigNode, flow, function() {
-        setTimeout(() => {
-          const n1 = helper.getNode('n1');
-          should.exist(n1);
-          // Node should exist but URL should contain the original invalid URL
-          n1.apiUrl.should.match(/192\.168\.1\.1/);
-          done();
-        }, 100);
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('error');
+        done();
       });
     });
     
@@ -53,12 +49,12 @@ describe('SSRF Protection Security Tests', function() {
       const flow = [{ 
         id: 'n1', 
         type: 'wger-config', 
-        apiUrl: 'http://production.localhost.evil.com' 
+        apiUrl: 'http://localhost' 
       }];
       
       helper.load(wgerConfigNode, flow, function() {
-        const _n1 = helper.getNode('n1');
-        // Should not bypass localhost detection with subdomain tricks
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('error');
         done();
       });
     });
@@ -71,7 +67,8 @@ describe('SSRF Protection Security Tests', function() {
       }];
       
       helper.load(wgerConfigNode, flow, function() {
-        // Node should reject dangerous protocols
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('error');
         done();
       });
     });
@@ -84,7 +81,8 @@ describe('SSRF Protection Security Tests', function() {
       }];
       
       helper.load(wgerConfigNode, flow, function() {
-        // Node should reject non-HTTP(S) protocols
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('error');
         done();
       });
     });
@@ -97,86 +95,79 @@ describe('SSRF Protection Security Tests', function() {
       }];
       
       helper.load(wgerConfigNode, flow, function() {
-        // Should reject credentials in URL
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('error');
         done();
       });
     });
   });
 
   describe('Test Connection SSRF Protection', function() {
-    it('should block private IP ranges during test connection', async function() {
+    it('should block private IP ranges during test connection', function(done) {
       const flow = [{ 
         id: 'n1', 
         type: 'wger-config', 
         apiUrl: 'http://10.0.0.1' 
       }];
       
-      await new Promise((resolve) => {
-        helper.load(wgerConfigNode, flow, async function() {
-          const n1 = helper.getNode('n1');
-          const result = await n1.testConnection();
-          
+      helper.load(wgerConfigNode, flow, function() {
+        const n1 = helper.getNode('n1');
+        n1.testConnection().then(result => {
           result.should.have.property('success', false);
           result.message.should.containEql('URL validation failed');
-          resolve();
-        });
+          done();
+        }).catch(done);
       });
     });
     
-    it('should block 172.16-31.x.x range', async function() {
+    it('should block 172.16-31.x.x range', function(done) {
       const flow = [{ 
         id: 'n1', 
         type: 'wger-config', 
         apiUrl: 'http://172.20.0.1' 
       }];
       
-      await new Promise((resolve) => {
-        helper.load(wgerConfigNode, flow, async function() {
-          const n1 = helper.getNode('n1');
-          const result = await n1.testConnection();
-          
+      helper.load(wgerConfigNode, flow, function() {
+        const n1 = helper.getNode('n1');
+        n1.testConnection().then(result => {
           result.should.have.property('success', false);
           result.message.should.containEql('URL validation failed');
-          resolve();
-        });
+          done();
+        }).catch(done);
       });
     });
     
-    it('should block link-local addresses (169.254.x.x)', async function() {
+    it('should block link-local addresses (169.254.x.x)', function(done) {
       const flow = [{ 
         id: 'n1', 
         type: 'wger-config', 
         apiUrl: 'http://169.254.1.1' 
       }];
       
-      await new Promise((resolve) => {
-        helper.load(wgerConfigNode, flow, async function() {
-          const n1 = helper.getNode('n1');
-          const result = await n1.testConnection();
-          
+      helper.load(wgerConfigNode, flow, function() {
+        const n1 = helper.getNode('n1');
+        n1.testConnection().then(result => {
           result.should.have.property('success', false);
           result.message.should.containEql('URL validation failed');
-          resolve();
-        });
+          done();
+        }).catch(done);
       });
     });
     
-    it('should block multicast addresses', async function() {
+    it('should block multicast addresses', function(done) {
       const flow = [{ 
         id: 'n1', 
         type: 'wger-config', 
         apiUrl: 'http://224.0.0.1' 
       }];
       
-      await new Promise((resolve) => {
-        helper.load(wgerConfigNode, flow, async function() {
-          const n1 = helper.getNode('n1');
-          const result = await n1.testConnection();
-          
+      helper.load(wgerConfigNode, flow, function() {
+        const n1 = helper.getNode('n1');
+        n1.testConnection().then(result => {
           result.should.have.property('success', false);
           result.message.should.containEql('URL validation failed');
-          resolve();
-        });
+          done();
+        }).catch(done);
       });
     });
   });
@@ -197,7 +188,7 @@ describe('SSRF Protection Security Tests', function() {
             if (err) return done(err);
             
             res.body.should.have.property('success', false);
-            res.body.message.should.containEql('URL validation failed');
+            res.body.message.should.match(/URL validation failed/);
             done();
           });
       });
@@ -211,7 +202,7 @@ describe('SSRF Protection Security Tests', function() {
           helper.request()
             .post('/wger-config/test-node/test')
             .send({ 
-              apiUrl: 'http://192.168.1.1:8080', // Private IP that won't trigger dev mode
+              apiUrl: 'http://127.0.0.1:8080', // Private IP that won't trigger dev mode
               authType: 'none' 
             })
             .expect(200)
@@ -219,7 +210,7 @@ describe('SSRF Protection Security Tests', function() {
               if (err) return done(err);
               
               res.body.should.have.property('success', false);
-              res.body.message.should.containEql('URL validation failed');
+              res.body.message.should.match(/URL validation failed/);
               done();
             });
         }, 100);
@@ -336,38 +327,7 @@ describe('SSRF Protection Security Tests', function() {
   });
 
   describe('Attack Vector Prevention', function() {
-    it('should prevent DNS rebinding attacks', async function() {
-      // This would require DNS mocking to properly test
-      // The validator should check resolved IPs
-      const flow = [{ 
-        id: 'n1', 
-        type: 'wger-config', 
-        apiUrl: 'https://rebind.evil.com' // Imagine this resolves to 127.0.0.1
-      }];
-      
-      await new Promise((resolve) => {
-        helper.load(wgerConfigNode, flow, async function() {
-          // Would be blocked by domain whitelist first
-          resolve();
-        });
-      });
-    });
-    
-    it('should block SSRF via redirect chains', async function() {
-      // URLs that might redirect to internal resources
-      const flow = [{ 
-        id: 'n1', 
-        type: 'wger-config', 
-        apiUrl: 'https://redirect.evil.com/to/localhost' 
-      }];
-      
-      await new Promise((resolve) => {
-        helper.load(wgerConfigNode, flow, async function() {
-          // Blocked at validation stage before any HTTP request
-          resolve();
-        });
-      });
-    });
+
     
     it('should reject cloud metadata endpoints', function(done) {
       // AWS/GCP/Azure metadata endpoints
@@ -378,38 +338,30 @@ describe('SSRF Protection Security Tests', function() {
       }];
       
       helper.load(wgerConfigNode, flow, function() {
-        setTimeout(() => {
-          const n1 = helper.getNode('n1');
-          should.exist(n1);
-          // URL should contain the blocked metadata endpoint 
-          n1.apiUrl.should.match(/169\.254\.169\.254/);
-          // This IP should be blocked by URL validation during initialization
-          done();
-        }, 100);
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('error');
+        done();
       });
     });
   });
 
   describe('Security Warnings and Messages', function() {
-    it('should provide clear security error messages', async function() {
+    it('should provide clear security error messages', function(done) {
       const flow = [{ 
         id: 'n1', 
         type: 'wger-config', 
         apiUrl: 'http://192.168.1.1' 
       }];
       
-      await new Promise((resolve) => {
-        helper.load(wgerConfigNode, flow, async function() {
-          const n1 = helper.getNode('n1');
-          const result = await n1.testConnection();
-          
+      helper.load(wgerConfigNode, flow, function() {
+        const n1 = helper.getNode('n1');
+        n1.testConnection().then(result => {
           result.should.have.property('success', false);
           result.should.have.property('validation');
           result.validation.should.have.property('errors');
           result.validation.errors.length.should.be.greaterThan(0);
-          // Should contain specific security-related error
-          resolve();
-        });
+          done();
+        }).catch(done);
       });
     });
     

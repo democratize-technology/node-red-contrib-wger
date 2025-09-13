@@ -1,5 +1,5 @@
 const { API, AUTH, DEFAULTS, NODE_RED } = require('../utils/constants');
-const { validateUrl, validateUrlSync, isDevEnvironment } = require('../utils/url-validator');
+const { validateUrl, validateUrlSync, isDevEnvironment } = require('../utils/safe-url-validator');
 
 module.exports = function (RED) {
   function WgerConfigNode(n) {

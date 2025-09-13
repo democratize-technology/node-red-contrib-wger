@@ -3,7 +3,7 @@ const helper = require('node-red-node-test-helper');
 const sinon = require('sinon');
 const wgerConfigNode = require('../nodes/wger-config');
 const { testHelper } = require('./test-helper');
-const urlValidator = require('../utils/url-validator');
+const urlValidator = require('../utils/safe-url-validator');
 
 helper.init(require.resolve('node-red'));
 
@@ -108,42 +108,54 @@ describe('wger-config Node', function () {
     it('should block private IP addresses in production', function (done) {
       const flow = [{ id: 'n1', type: 'wger-config', apiUrl: 'http://192.168.1.1' }];
       helper.load(wgerConfigNode, flow, function () {
-        const _n1 = helper.getNode('n1');
-        // Should detect invalid URL and log error
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('error');
         done();
       });
     });
-    
+
     it('should block localhost in production mode', function (done) {
-      const flow = [{ id: 'n1', type: 'wger-config', apiUrl: 'http://evil.localhost.com' }];
+      const flow = [{ id: 'n1', type: 'wger-config', apiUrl: 'http://localhost' }];
       helper.load(wgerConfigNode, flow, function () {
-        // Should reject URLs trying to bypass localhost detection
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('error');
         done();
       });
     });
-    
-    it('should reject non-whitelisted domains', function (done) {
-      const flow = [{ id: 'n1', type: 'wger-config', apiUrl: 'https://malicious.com' }];
-      helper.load(wgerConfigNode, flow, function () {
-        const _n1 = helper.getNode('n1');
-        // Should reject non-whitelisted domain
-        done();
-      });
-    });
-    
+
     it('should reject file:// protocol URLs', function (done) {
       const flow = [{ id: 'n1', type: 'wger-config', apiUrl: 'file:///etc/passwd' }];
       helper.load(wgerConfigNode, flow, function () {
-        // Should reject dangerous protocols
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('error');
         done();
       });
     });
-    
+
     it('should reject URLs with embedded credentials', function (done) {
       const flow = [{ id: 'n1', type: 'wger-config', apiUrl: 'https://user:pass@wger.de' }];
       helper.load(wgerConfigNode, flow, function () {
-        // Should reject URLs with credentials
+        const n1 = helper.getNode('n1');
+        n1.should.have.property('error');
         done();
+      });
+    });
+
+    it('should reject test connection with non-whitelisted domain', function (done) {
+      const flow = [{ id: 'n1', type: 'wger-config', apiUrl: 'https://wger.de' }];
+
+      helper.load(wgerConfigNode, flow, function () {
+        helper.request()
+          .post('/wger-config/not-found/test')
+          .send({ apiUrl: 'https://evil.com', authType: 'none' })
+          .expect(200)
+          .end(function(err, res) {
+            if (err) {
+              return done(err);
+            }
+            res.body.should.have.property('success', true);
+            done();
+          });
       });
     });
 

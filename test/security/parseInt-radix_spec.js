@@ -8,7 +8,7 @@ const should = require('should');
 const helper = require('node-red-node-test-helper');
 const wgerConfigNode = require('../../nodes/wger-config');
 const InputValidator = require('../../utils/input-validator');
-const { validateUrl: _validateUrl, validateUrlSync } = require('../../utils/url-validator');
+const { validateUrl: _validateUrl, validateUrlSync } = require('../../utils/safe-url-validator');
 
 helper.init(require.resolve('node-red'));
 

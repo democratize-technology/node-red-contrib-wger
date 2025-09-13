@@ -218,14 +218,7 @@ class InputValidator {
       z.string(),
       z.number().transform(val => String(val)),
       z.boolean().transform(val => String(val))
-    ], {
-      errorMap: (issue, ctx) => {
-        if (issue.code === 'invalid_union') {
-          return { message: `Field '${fieldName}' must be a string, got ${typeof ctx.data}` };
-        }
-        return { message: issue.message || `Field '${fieldName}' must be a string` };
-      }
-    }).refine((val) => {
+    ]).refine((val) => {
       // Path traversal check
       if (typeof val === 'string' && (val.includes('../') || val.includes('..\\'))) {
         return false;

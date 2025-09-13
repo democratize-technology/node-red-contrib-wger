@@ -63,16 +63,9 @@ const nutritionOperations = {
     validationSchemas.nutrition.listMeals
   ),
   
-  createMeal: OperationBuilders.customOperation(
-    null,  // Use full validation schema instead
-    async (client, payload) => {
-      return await client.post(API.ENDPOINTS.MEALS, {
-        plan: payload.plan,
-        order: payload.order,
-        time: payload.time,
-        name: payload.name
-      });
-    },
+  createMeal: OperationBuilders.createOperation(
+    API.ENDPOINTS.MEALS,
+    null,
     validationSchemas.nutrition.createMeal
   ),
   
@@ -100,17 +93,9 @@ const nutritionOperations = {
     validationSchemas.nutrition.listMealItems
   ),
   
-  createMealItem: OperationBuilders.customOperation(
-    null,  // Use full validation schema instead
-    async (client, payload) => {
-      return await client.post(API.ENDPOINTS.MEAL_ITEMS, {
-        meal: payload.meal,
-        ingredient: payload.ingredient,
-        weight_unit: payload.weight_unit,
-        amount: payload.amount,
-        order: payload.order
-      });
-    },
+  createMealItem: OperationBuilders.createOperation(
+    API.ENDPOINTS.MEAL_ITEMS,
+    null,
     validationSchemas.nutrition.createMealItem
   ),
   
@@ -128,13 +113,11 @@ const nutritionOperations = {
   ),
   
   // Ingredient operations
-  searchIngredients: OperationBuilders.customOperation(
-    null,  // Use full validation schema instead
-    async (client, payload) => {
-      return await client.get(API.ENDPOINTS.INGREDIENT_SEARCH, {
-        term: payload.term,
-        language: payload.language || 'en'
-      });
+  searchIngredients: OperationBuilders.listOperation(
+    API.ENDPOINTS.INGREDIENT_SEARCH,
+    {
+      term: 'term',
+      language: payload => payload.language || 'en'
     },
     validationSchemas.nutrition.searchIngredient
   ),
@@ -145,12 +128,10 @@ const nutritionOperations = {
     validationSchemas.nutrition.getIngredient
   ),
   
-  getIngredientByBarcode: OperationBuilders.customOperation(
-    null,
-    async (client, payload) => {
-      return await client.get(API.ENDPOINTS.INGREDIENT_SEARCH, {
-        code: payload.barcode
-      });
+  getIngredientByBarcode: OperationBuilders.listOperation(
+    API.ENDPOINTS.INGREDIENT_SEARCH,
+    {
+      code: 'barcode'
     },
     validationSchemas.nutrition.getIngredientByBarcode
   ),

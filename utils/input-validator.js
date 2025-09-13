@@ -297,14 +297,7 @@ class InputValidator {
         });
         return z.NEVER;
       })
-    ], {
-      errorMap: (issue, _ctx) => {
-        if (issue.code === 'invalid_union') {
-          return { message: `Field '${fieldName}' must be a boolean` };
-        }
-        return { message: issue.message || `Field '${fieldName}' must be a boolean` };
-      }
-    });
+    ]);
   }
 
   /**
